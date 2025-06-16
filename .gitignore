@@ -2,6 +2,10 @@
 
 # dependencies
 node_modules/
+/.pnp
+.pnp.js
+yarn.lock
+package-lock.json
 
 # Expo
 .expo/
@@ -17,23 +21,56 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.orig.*
+*.log
+*.swp
+*.swo
 
 # Metro
 .metro-health-check*
+.metro/
 
 # debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
 
 # macOS
 .DS_Store
 *.pem
+.AppleDouble
+.LSOverride
+._*
 
 # local env files
+.env
 .env*.local
+.env.development
+.env.test
+.env.production
 
 # typescript
 *.tsbuildinfo
+next-env.d.ts
 
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+coverage/
+.nyc_output/
+
+# Build
+build/
+out/
+.next/
+
+# Misc
+*.bak
+*.tmp
+*.temp
 app-example

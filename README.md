@@ -1,50 +1,178 @@
-# Welcome to your Expo app 👋
+# Photo Evidence App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A secure mobile application built with React Native and Expo for capturing, storing, and managing photo evidence with enhanced security features.
 
-## Get started
+## Features
 
-1. Install dependencies
+- 📸 Capture photos with device camera
+- 🔒 Secure storage of photo evidence
+- 📁 Document management and organization
+- 🔐 Encryption for sensitive data
+- 📱 Cross-platform support (iOS & Android)
+- 🎯 User-friendly interface
 
-   ```bash
-   npm install
-   ```
+## Prerequisites
 
-2. Start the app
+Before you begin, ensure you have the following installed:
+- Node.js (v14 or higher)
+- npm or yarn
+- Expo CLI (`npm install -g expo-cli`)
+- Python 3.8 or higher
+- pip (Python package manager)
+- iOS Simulator (for Mac users) or Android Studio (for Android development)
 
-   ```bash
-   npx expo start
-   ```
+## Installation
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+1. Clone the repository:
 ```bash
-npm run reset-project
+git clone [your-repository-url]
+cd photo-evidence-app
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Backend Setup:
+```bash
+# Navigate to backend directory
+cd backend
 
-## Learn more
+# Create and activate virtual environment (recommended)
+python -m venv venv
+# On Windows
+venv\Scripts\activate
+# On macOS/Linux
+source venv/bin/activate
 
-To learn more about developing your project with Expo, look at the following resources:
+# Install backend dependencies
+pip install -r requirements.txt
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+# Create .env file from example
+cp env.example .env
+# Edit .env file with your configuration
+```
 
-## Join the community
+3. Frontend Setup:
+```bash
+# Navigate back to root directory
+cd ..
 
-Join our community of developers creating universal apps.
+# Install frontend dependencies
+npm install
+# or
+yarn install
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Running the Application
+
+The application requires both backend and frontend to be running simultaneously. You'll need two terminal windows:
+
+### Terminal 1 - Backend Server
+```bash
+# Navigate to backend directory
+cd backend
+
+# Activate virtual environment if not already activated
+# On Windows
+venv\Scripts\activate
+# On macOS/Linux
+source venv/bin/activate
+
+# Start the backend server
+uvicorn main:app --reload --port 8000
+```
+
+### Terminal 2 - Frontend Development
+```bash
+# Navigate to root directory
+cd photo-evidence-app
+
+# Start the Expo development server
+npm start
+# or
+yarn start
+```
+
+The backend will be running on `http://localhost:8000` and the frontend will be available through Expo's development server.
+
+## Project Structure
+
+```
+photo-evidence-app/
+├── app/                 # Main application code
+├── assets/             # Static assets (images, fonts)
+├── components/         # Reusable React components
+├── constants/          # App constants and configuration
+├── hooks/             # Custom React hooks
+├── backend/           # Backend server code
+│   ├── main.py        # FastAPI application
+│   ├── requirements.txt # Python dependencies
+│   └── uploads/       # Upload directory for images
+└── scripts/           # Utility scripts
+```
+
+## Available Scripts
+
+- `npm start` - Start the Expo development server
+- `npm run android` - Start the app on Android emulator
+- `npm run ios` - Start the app on iOS simulator
+- `npm run web` - Start the app in web browser
+
+## Dependencies
+
+### Core Dependencies
+- expo: ^53.0.11
+- react: ^19.0.0
+- react-native: ^0.79.3
+- @expo/vector-icons: ^14.1.0
+
+### Security & Storage
+- expo-crypto: ~14.1.5
+- expo-file-system: ~18.1.10
+- crypto-js: ^4.1.1
+
+### Media Handling
+- expo-image-picker: ~16.1.4
+- expo-document-picker: ~13.1.5
+
+## Development
+
+### Environment Setup
+1. Create a `.env` file in the root directory
+2. Add necessary environment variables:
+```
+API_URL=your_api_url
+ENCRYPTION_KEY=your_encryption_key
+```
+
+### Code Style
+This project uses ESLint for code linting. Run the linter with:
+```bash
+npm run lint
+```
+
+## Security Features
+
+- End-to-end encryption for stored photos
+- Secure file system access
+- Permission-based access control
+- Secure data transmission
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support, email [your-email] or open an issue in the repository.
+
+## Acknowledgments
+
+- Expo team for the amazing framework
+- React Native community
+- All contributors who have helped shape this project
