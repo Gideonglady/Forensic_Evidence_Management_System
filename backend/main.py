@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile, Form
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Query, Request
 from pydantic import BaseModel
 import subprocess
 import os
@@ -7,7 +7,14 @@ from fastapi.responses import JSONResponse, FileResponse
 import shutil
 import json
 from datetime import datetime
-from blockchain import blockchain_service
+
+# Make blockchain import optional
+try:
+    from blockchain import BlockchainService
+    BLOCKCHAIN_AVAILABLE = True
+except ImportError:
+    BLOCKCHAIN_AVAILABLE = False
+    BlockchainService = None
 
 app = FastAPI()
 
@@ -32,6 +39,10 @@ class EvidenceRequest(BaseModel):
 class EvidenceRetrievalRequest(BaseModel):
     caseNumber: str
     transactionHash: str
+
+class CreateCaseRequest(BaseModel):
+    caseNumber: str
+    description: str = ""
 
 @app.post("/api/run-pipeline", response_model=PipelineResponse)
 def run_pipeline():
@@ -106,6 +117,9 @@ async def retrieve_photo(jsonData: dict):
 @app.post("/store-evidence")
 async def store_evidence(request: EvidenceRequest):
     try:
+        # Create blockchain service instance
+        blockchain_service = BlockchainService()
+        
         # Store evidence on blockchain
         result = blockchain_service.store_evidence(request.caseNumber, request.hash)
         
@@ -115,13 +129,40 @@ async def store_evidence(request: EvidenceRequest):
             "transaction_hash": result["transaction_hash"],
             "block_number": result["block_number"]
         }
+    except ConnectionError as e:
+        print(f"Blockchain connection error: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Blockchain service unavailable: {str(e)}",
+            "details": "Make sure Ganache is running and the contract is deployed"
+        }
+    except FileNotFoundError as e:
+        print(f"Contract file not found: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Smart contract not deployed: {str(e)}",
+            "details": "Run 'npm run blockchain:deploy' to deploy the contract"
+        }
     except Exception as e:
         print(f"Error storing evidence on blockchain: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "status": "error",
+            "message": f"Blockchain storage failed: {str(e)}",
+            "details": "Check Ganache and contract deployment"
+        }
 
 @app.post("/get-evidence")
 async def get_evidence(request: EvidenceRetrievalRequest):
     try:
+        if not BLOCKCHAIN_AVAILABLE:
+            return {
+                "status": "error",
+                "message": "Blockchain service not available"
+            }
+        
+        # Create blockchain service instance
+        blockchain_service = BlockchainService()
+        
         # Retrieve evidence from blockchain
         result = blockchain_service.get_evidence(request.caseNumber)
         
@@ -138,6 +179,15 @@ async def get_evidence(request: EvidenceRetrievalRequest):
 @app.get("/blockchain-status")
 async def blockchain_status():
     try:
+        if not BLOCKCHAIN_AVAILABLE:
+            return {
+                "status": "unavailable",
+                "message": "Blockchain service not available"
+            }
+        
+        # Create blockchain service instance
+        blockchain_service = BlockchainService()
+        
         # Check if blockchain connection is working
         is_connected = blockchain_service.web3.is_connected()
         return {
@@ -149,6 +199,116 @@ async def blockchain_status():
         return {
             "status": "error",
             "error": str(e)
+        }
+
+@app.get("/download-evidence")
+def download_evidence(case_number: str = Query(..., description="Case number to download evidence for")):
+    try:
+        uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+        # Find all files for the given case number
+        files = [f for f in os.listdir(uploads_dir) if f.startswith(f"{case_number}_")]
+        if not files:
+            return {"status": "error", "message": "No evidence files found for this case.", "files": []}
+        # Return file names and download URLs with full backend URL
+        file_infos = [
+            {
+                "filename": f,
+                "url": f"http://192.168.0.4:8000/download-file/{f}"
+            }
+            for f in files
+        ]
+        return {"status": "success", "files": file_infos}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "files": []}
+
+@app.get("/download-file/{filename}")
+def download_file(filename: str):
+    uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+    file_path = os.path.join(uploads_dir, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path, media_type="application/octet-stream", filename=filename)
+
+@app.post("/delete-evidence-file")
+async def delete_evidence_file(request: Request):
+    try:
+        data = await request.json()
+        filename = data.get("filename")
+        if not filename:
+            return {"status": "error", "message": "Filename is required."}
+        uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+        file_path = os.path.join(uploads_dir, filename)
+        if not os.path.exists(file_path):
+            return {"status": "error", "message": "File not found."}
+        os.remove(file_path)
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/create-case")
+async def create_case(request: CreateCaseRequest):
+    try:
+        # Create a new case with the provided data
+        new_case = {
+            "id": f"case_{datetime.now().timestamp()}",
+            "caseNumber": request.caseNumber,
+            "description": request.description,
+            "createdAt": datetime.now().isoformat(),
+            "photoCount": 0,
+            "processedCount": 0,
+            "thumbnails": []
+        }
+        
+        # Save to cases.json file
+        cases_file = os.path.join(os.path.dirname(__file__), "cases.json")
+        cases = []
+        
+        # Load existing cases if file exists
+        if os.path.exists(cases_file):
+            with open(cases_file, 'r') as f:
+                cases = json.load(f)
+        
+        # Add new case
+        cases.append(new_case)
+        
+        # Save updated cases
+        with open(cases_file, 'w') as f:
+            json.dump(cases, f, indent=2)
+        
+        return {
+            "status": "success",
+            "message": "Case created successfully",
+            "case": new_case
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to create case: {str(e)}"
+        }
+
+@app.get("/cases")
+async def get_cases():
+    try:
+        # In a real app, you would fetch this from a database
+        # For now, we'll return an empty list or mock data
+        # You can extend this to read from a JSON file or database
+        cases = []
+        
+        # Check if there's a cases.json file to load existing cases
+        cases_file = os.path.join(os.path.dirname(__file__), "cases.json")
+        if os.path.exists(cases_file):
+            with open(cases_file, 'r') as f:
+                cases = json.load(f)
+        
+        return {
+            "status": "success",
+            "cases": cases
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to fetch cases: {str(e)}",
+            "cases": []
         }
 
 if __name__ == "__main__":

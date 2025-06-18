@@ -1,0 +1,65 @@
+[
+  {
+    "id": "case_1750233475.624586",
+    "caseNumber": "TEST001",
+    "description": "Test case",
+    "createdAt": "2025-06-18T13:27:55.624637",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750233560.601798",
+    "caseNumber": "1",
+    "description": "Hdbsbns",
+    "createdAt": "2025-06-18T13:29:20.601806",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750233584.332117",
+    "caseNumber": "2",
+    "description": "",
+    "createdAt": "2025-06-18T13:29:44.332131",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750233597.696208",
+    "caseNumber": "1",
+    "description": "Bjd",
+    "createdAt": "2025-06-18T13:29:57.696223",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750238139.019293",
+    "caseNumber": "123",
+    "description": "Glady",
+    "createdAt": "2025-06-18T14:45:39.019895",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750238718.980123",
+    "caseNumber": "4331",
+    "description": "",
+    "createdAt": "2025-06-18T14:55:18.980141",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750239269.971826",
+    "caseNumber": "99",
+    "description": "Jjsbshsnns",
+    "createdAt": "2025-06-18T15:04:29.971837",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  }
+]

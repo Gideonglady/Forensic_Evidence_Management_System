@@ -32,7 +32,9 @@
     "expo-permissions": "~14.2.1",
     "expo-sharing": "~13.1.5",
     "expo-status-bar": "~2.2.3",
+    "form-data": "^4.0.3",
     "metro": "^0.82.4",
+    "node-fetch": "^3.3.2",
     "react": "^19.0.0",
     "react-native": "^0.79.3",
     "tslib": "^2.8.1"

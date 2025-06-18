@@ -18,27 +18,39 @@ CONTRACT_INFO_PATH = os.path.join(os.path.dirname(__file__), "contract_info.json
 
 class BlockchainService:
     def __init__(self):
-        self.web3 = Web3(Web3.HTTPProvider(GANACHE_URL))
-        if not self.web3.is_connected():
-            raise ConnectionError(f"Failed to connect to Ganache at {GANACHE_URL}")
-        
-        # Load contract info
-        with open(CONTRACT_INFO_PATH) as f:
-            contract_info = json.load(f)
-        
-        self.contract_address = contract_info['address']
-        self.contract_abi = contract_info['abi']
-        self.contract = self.web3.eth.contract(
-            address=self.contract_address,
-            abi=self.contract_abi
-        )
-        
-        # Get the first account from Ganache
-        self.account = self.web3.eth.accounts[0]
-        logger.info(f"Using account: {self.account}")
+        try:
+            self.web3 = Web3(Web3.HTTPProvider(GANACHE_URL))
+            if not self.web3.is_connected():
+                raise ConnectionError(f"Failed to connect to Ganache at {GANACHE_URL}")
+            
+            # Load contract info
+            if not os.path.exists(CONTRACT_INFO_PATH):
+                raise FileNotFoundError(f"Contract info file not found: {CONTRACT_INFO_PATH}")
+            
+            with open(CONTRACT_INFO_PATH) as f:
+                contract_info = json.load(f)
+            
+            self.contract_address = contract_info['address']
+            self.contract_abi = contract_info['abi']
+            self.contract = self.web3.eth.contract(
+                address=self.contract_address,
+                abi=self.contract_abi
+            )
+            
+            # Get the first account from Ganache
+            self.account = self.web3.eth.accounts[0]
+            logger.info(f"Blockchain connected successfully. Using account: {self.account}")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize blockchain service: {str(e)}")
+            raise ConnectionError(f"Blockchain service unavailable: {str(e)}")
 
     def store_evidence(self, case_number: str, hash_str: str) -> Dict[str, Any]:
         try:
+            # Check if connected
+            if not self.web3.is_connected():
+                raise ConnectionError("Not connected to blockchain")
+            
             # Build the transaction
             nonce = self.web3.eth.get_transaction_count(self.account)
             txn = self.contract.functions.storeEvidence(
@@ -70,6 +82,10 @@ class BlockchainService:
 
     def get_evidence(self, case_number: str) -> Dict[str, Any]:
         try:
+            # Check if connected
+            if not self.web3.is_connected():
+                raise ConnectionError("Not connected to blockchain")
+                
             hash_str = self.contract.functions.getEvidence(case_number).call()
             return {
                 "case_number": case_number,
@@ -78,7 +94,4 @@ class BlockchainService:
             }
         except Exception as e:
             logger.error(f"Error retrieving evidence: {str(e)}")
-            raise
-
-# Create a singleton instance
-blockchain_service = BlockchainService() 
+            raise 
