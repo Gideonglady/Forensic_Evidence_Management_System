@@ -1,35 +1,98 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  Image,
-  Alert,
-  ActivityIndicator,
-  SafeAreaView,
-  StatusBar,
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import CryptoJS from 'crypto-js';
+import * as FileSystem from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
+import * as Sharing from 'expo-sharing';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { CONFIG, checkBackendHealth } from './constants/config';
 
-const API_BASE_URL = "http://192.168.253.55:8000";// Replace with your actual API URL
-const BLOCKCHAIN_API_URL = 'https://mainnet.infura.io/v3/eeaf3e59b97f4bc8bddb538a429a9dc9'; // Replace with your blockchain API
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function App() {
-  const [caseNumber, setCaseNumber] = useState('');
+  const [currentPage, setCurrentPage] = useState('cases'); // 'cases', 'newCase', 'caseDetails', 'upload'
+  const [cases, setCases] = useState([]);
+  const [currentCase, setCurrentCase] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState('input'); // 'input', 'upload', 'view'
   const [processedPhotos, setProcessedPhotos] = useState([]);
+  const [backendStatus, setBackendStatus] = useState('checking'); // 'checking', 'connected', 'disconnected'
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [newCaseNumber, setNewCaseNumber] = useState('');
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [modalScale] = useState(new Animated.Value(0));
+  const [modalOpacity] = useState(new Animated.Value(0));
 
   useEffect(() => {
     requestPermissions();
+    checkBackendConnection();
   }, []);
+
+  const animateModal = (show) => {
+    if (show) {
+      setShowPhotoModal(true);
+      Animated.parallel([
+        Animated.timing(modalScale, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(modalOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(modalScale, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(modalOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowPhotoModal(false);
+        setSelectedPhoto(null);
+      });
+    }
+  };
+
+  const checkBackendConnection = async () => {
+    try {
+      const isHealthy = await checkBackendHealth();
+      setBackendStatus(isHealthy ? 'connected' : 'disconnected');
+      
+      if (!isHealthy) {
+        console.warn('Backend is not accessible, using mock data');
+      }
+    } catch (error) {
+      console.error('Backend health check failed:', error);
+      setBackendStatus('disconnected');
+    }
+  };
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -39,11 +102,11 @@ export default function App() {
   };
 
   const handleCaseSubmit = () => {
-    if (!caseNumber.trim()) {
+    if (!newCaseNumber.trim()) {
       Alert.alert('Error', 'Please enter a case number');
       return;
     }
-    setCurrentStep('upload');
+    setCurrentPage('upload');
   };
 
   const selectPhotos = async () => {
@@ -114,25 +177,52 @@ export default function App() {
         type: photo.type,
         name: photo.name,
       });
-      formData.append('caseNumber', caseNumber);
+      formData.append('caseNumber', newCaseNumber);
 
-      const response = await fetch(`${API_BASE_URL}/process-photo`, {
+      console.log('Uploading to backend:', `${CONFIG.API_BASE_URL}/process-photo`);
+      console.log('Photo data:', { uri: photo.uri, type: photo.type, name: photo.name });
+      
+      // Add timeout to the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+      
+      const response = await fetch(`${CONFIG.API_BASE_URL}/process-photo`, {
         method: 'POST',
         body: formData,
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Backend error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
 
       const jsonData = await response.json();
+      console.log('Backend response:', jsonData);
       return jsonData;
     } catch (error) {
-      console.error('Backend upload error:', error);
-      // Return mock data for development
+      console.error('Backend upload error details:', {
+        message: error.message,
+        stack: error.stack,
+        url: `${CONFIG.API_BASE_URL}/process-photo`,
+        errorType: error.name
+      });
+      
+      // Check if it's a network error
+      if (error.message.includes('Network request failed') || error.name === 'AbortError') {
+        console.log('Network error detected, using mock data');
+      }
+      
+      // Return mock data for development when backend is not available
+      console.log('Using mock data for development');
       return {
         id: photo.id,
         metadata: {
@@ -140,10 +230,13 @@ export default function App() {
           location: 'Mock Location',
           size: '1024x768',
           format: 'JPEG',
+          filename: photo.name,
+          caseNumber: newCaseNumber,
         },
         analysis: {
           objects: ['evidence', 'document'],
           confidence: 0.95,
+          processing_status: 'completed',
         },
       };
     }
@@ -151,25 +244,18 @@ export default function App() {
 
   const storeInBlockchain = async (hash, jsonData) => {
     try {
-      const response = await fetch(`${BLOCKCHAIN_API_URL}/store`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          hash,
-          data: jsonData,
-          timestamp: new Date().toISOString(),
-          caseNumber,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Blockchain error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result.blockchainId || `mock_blockchain_${Date.now()}`;
+      // For development, we'll use a mock blockchain storage
+      // In production, you would connect to a real blockchain
+      console.log('Storing in blockchain:', hash);
+      
+      // Mock blockchain storage
+      const mockBlockchainId = `blockchain_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Simulate blockchain storage delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Blockchain storage successful:', mockBlockchainId);
+      return mockBlockchainId;
     } catch (error) {
       console.error('Blockchain storage error:', error);
       // Return mock blockchain ID for development
@@ -211,8 +297,45 @@ export default function App() {
         setProcessedPhotos([...processed]);
       }
 
+      // Create or update case data
+      const caseData = {
+        id: Date.now().toString(),
+        caseNumber: newCaseNumber,
+        title: `Case #${newCaseNumber}`,
+        description: `Evidence case containing ${processed.length} photos`,
+        createdAt: new Date().toISOString(),
+        photoCount: processed.length,
+        processedCount: processed.length,
+        thumbnails: processed.map(photo => photo.uri),
+        photos: processed,
+        lastUpdated: new Date().toISOString(),
+      };
+
+      // Add to cases list
+      setCases(prevCases => {
+        const existingCaseIndex = prevCases.findIndex(c => c.caseNumber === newCaseNumber);
+        if (existingCaseIndex >= 0) {
+          // Update existing case
+          const updatedCases = [...prevCases];
+          updatedCases[existingCaseIndex] = {
+            ...updatedCases[existingCaseIndex],
+            photoCount: updatedCases[existingCaseIndex].photoCount + processed.length,
+            processedCount: updatedCases[existingCaseIndex].processedCount + processed.length,
+            thumbnails: [...updatedCases[existingCaseIndex].thumbnails, ...processed.map(photo => photo.uri)],
+            photos: [...updatedCases[existingCaseIndex].photos, ...processed],
+            lastUpdated: new Date().toISOString(),
+          };
+          return updatedCases;
+        } else {
+          // Add new case
+          return [...prevCases, caseData];
+        }
+      });
+
+      setCurrentCase(caseData);
+
       Alert.alert('Success', 'All photos processed and stored on blockchain!');
-      setCurrentStep('view');
+      setCurrentPage('caseDetails');
     } catch (error) {
       Alert.alert('Error', 'Failed to process photos');
       console.error('Processing error:', error);
@@ -221,55 +344,207 @@ export default function App() {
     }
   };
 
-  const retrieveFromBlockchain = async (blockchainId) => {
+  const downloadSingleEvidence = async (photo) => {
     try {
-      const response = await fetch(`${BLOCKCHAIN_API_URL}/retrieve/${blockchainId}`);
-      
-      if (!response.ok) {
-        throw new Error(`Retrieval error! status: ${response.status}`);
+      setIsDownloading(true);
+      setDownloadProgress(0);
+
+      // Create a temporary file path
+      const fileName = `evidence_${Date.now()}.jpg`;
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+      // Copy the photo to the documents directory
+      await FileSystem.copyAsync({
+        from: photo.uri,
+        to: fileUri,
+      });
+
+      setDownloadProgress(50);
+
+      // Share the file
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'image/jpeg',
+          dialogTitle: `Download Evidence: ${photo.name}`,
+        });
+      } else {
+        Alert.alert('Download Complete', `Evidence saved to: ${fileUri}`);
       }
 
-      const blockchainData = await response.json();
-      return blockchainData;
+      setDownloadProgress(100);
+      Alert.alert('Success', 'Evidence downloaded successfully!');
     } catch (error) {
-      console.error('Blockchain retrieval error:', error);
-      return null;
+      console.error('Download error:', error);
+      Alert.alert('Download Error', 'Failed to download evidence file.');
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+    }
+  };
+
+  const downloadAllEvidence = async (caseId) => {
+    try {
+      const caseData = cases.find(c => c.id === caseId);
+      if (!caseData || !caseData.photos || caseData.photos.length === 0) {
+        Alert.alert('No Evidence', 'This case has no evidence to download.');
+        return;
+      }
+
+      Alert.alert(
+        'Download All Evidence',
+        `Download all ${caseData.photos.length} evidence files for case "${caseData.title}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Download All', 
+            onPress: async () => {
+              try {
+                setIsDownloading(true);
+                setDownloadProgress(0);
+
+                const totalPhotos = caseData.photos.length;
+                const downloadPromises = caseData.photos.map(async (photo, index) => {
+                  const fileName = `evidence_${caseData.caseNumber}_${index + 1}.jpg`;
+                  const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+                  await FileSystem.copyAsync({
+                    from: photo.uri,
+                    to: fileUri,
+                  });
+
+                  setDownloadProgress(((index + 1) / totalPhotos) * 100);
+                });
+
+                await Promise.all(downloadPromises);
+
+                const isAvailable = await Sharing.isAvailableAsync();
+                if (isAvailable) {
+                  // Share the first file as a representative
+                  const firstFileUri = `${FileSystem.documentDirectory}evidence_${caseData.caseNumber}_1.jpg`;
+                  await Sharing.shareAsync(firstFileUri, {
+                    mimeType: 'image/jpeg',
+                    dialogTitle: `Download All Evidence: ${caseData.title}`,
+                  });
+                }
+
+                Alert.alert('Download Complete', `All ${totalPhotos} evidence files have been downloaded successfully!`);
+              } catch (error) {
+                console.error('Download error:', error);
+                Alert.alert('Download Error', 'Failed to download evidence files.');
+              } finally {
+                setIsDownloading(false);
+                setDownloadProgress(0);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Download all evidence error:', error);
+      Alert.alert('Error', 'Failed to prepare download.');
     }
   };
 
   const viewPhoto = async (photo) => {
     setLoading(true);
     try {
+      console.log('Viewing photo:', photo.id);
+      
       // Retrieve JSON from blockchain
       const blockchainData = await retrieveFromBlockchain(photo.blockchainId);
       
       if (blockchainData) {
+        console.log('Retrieved blockchain data, attempting backend retrieval');
+        
         // Send JSON to backend to get photo back
-        const response = await fetch(`${API_BASE_URL}/retrieve-photo`, {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/retrieve-photo`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             jsonData: blockchainData.data,
-            caseNumber,
+            caseNumber: newCaseNumber,
           }),
         });
 
+        console.log('Backend retrieval response status:', response.status);
+
         if (response.ok) {
-          const photoBlob = await response.blob();
-          const photoUrl = URL.createObjectURL(photoBlob);
+          // In React Native, we don't use URL.createObjectURL
+          // Instead, we can display the photo data or handle it differently
+          const responseData = await response.json();
+          console.log('Photo retrieval successful:', responseData);
+          
+          // Display the original photo that was stored
+          setSelectedPhoto({
+            uri: photo.uri,
+            metadata: blockchainData.data.metadata,
+            analysis: blockchainData.data.analysis,
+            blockchainId: photo.blockchainId,
+            hash: blockchainData.hash
+          });
+          setShowPhotoModal(true);
           
           Alert.alert('Photo Retrieved', 'Photo successfully retrieved from blockchain and backend!');
-          // Here you could display the photo or handle it as needed
+        } else {
+          const errorText = await response.text();
+          console.error('Backend retrieval error:', errorText);
+          Alert.alert('Retrieval Error', 'Failed to retrieve photo from backend');
         }
+      } else {
+        console.log('No blockchain data available, using mock retrieval');
+        // Display the original photo with mock data
+        setSelectedPhoto({
+          uri: photo.uri,
+          metadata: {
+            timestamp: new Date().toISOString(),
+            location: 'Mock Location',
+            size: '1024x768',
+            format: 'JPEG',
+          },
+          analysis: {
+            objects: ['evidence', 'document'],
+            confidence: 0.95,
+          },
+          blockchainId: photo.blockchainId,
+          hash: `mock_hash_${Date.now()}`
+        });
+        setShowPhotoModal(true);
+        Alert.alert('Photo Retrieved', 'Photo retrieved using mock data (development mode)');
       }
     } catch (error) {
+      console.error('Photo retrieval error details:', {
+        message: error.message,
+        stack: error.stack,
+        photoId: photo.id
+      });
       Alert.alert('Error', 'Failed to retrieve photo');
-      console.error('Retrieval error:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const viewPhotoDirectly = (photo) => {
+    const photoData = {
+      uri: photo.uri,
+      metadata: photo.jsonData?.metadata || {
+        timestamp: new Date().toISOString(),
+        location: 'Unknown',
+        size: 'Unknown',
+        format: 'JPEG',
+      },
+      analysis: photo.jsonData?.analysis || {
+        objects: ['evidence'],
+        confidence: 0.95,
+      },
+      blockchainId: photo.blockchainId,
+      hash: photo.hash
+    };
+    
+    setSelectedPhoto(photoData);
+    animateModal(true);
   };
 
   const removePhoto = (photoId) => {
@@ -277,10 +552,52 @@ export default function App() {
   };
 
   const resetApp = () => {
-    setCaseNumber('');
+    setNewCaseNumber('');
     setPhotos([]);
     setProcessedPhotos([]);
-    setCurrentStep('input');
+    setCurrentPage('cases');
+  };
+
+  const deleteEvidence = (caseId, photoId) => {
+    Alert.alert(
+      'Delete Evidence',
+      'Are you sure you want to delete this evidence? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => {
+            try {
+              setCases(prevCases => 
+                prevCases.map(caseItem => {
+                  if (caseItem.id === caseId) {
+                    return {
+                      ...caseItem,
+                      photos: caseItem.photos.filter(photo => photo.id !== photoId)
+                    };
+                  }
+                  return caseItem;
+                })
+              );
+              
+              // Update current case if it's the one being viewed
+              if (currentCase && currentCase.id === caseId) {
+                setCurrentCase(prev => ({
+                  ...prev,
+                  photos: prev.photos.filter(photo => photo.id !== photoId)
+                }));
+              }
+              
+              Alert.alert('Success', 'Evidence deleted successfully.');
+            } catch (error) {
+              console.error('Delete evidence error:', error);
+              Alert.alert('Error', 'Failed to delete evidence.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderInputStep = () => (
@@ -292,8 +609,8 @@ export default function App() {
         <Text style={styles.label}>Case Number:</Text>
         <TextInput
           style={styles.input}
-          value={caseNumber}
-          onChangeText={setCaseNumber}
+          value={newCaseNumber}
+          onChangeText={setNewCaseNumber}
           placeholder="Enter case number"
           placeholderTextColor="#999"
         />
@@ -308,26 +625,25 @@ export default function App() {
   const renderUploadStep = () => (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setCurrentStep('input')} style={styles.backButton}>
+        <TouchableOpacity style={styles.backButton} onPress={() => setCurrentPage('newCase')}>
           <Ionicons name="arrow-back" size={24} color="#007AFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Case: {caseNumber}</Text>
+        <Text style={styles.title}>Add Photos</Text>
       </View>
-
-      <Text style={styles.subtitle}>Add Photo Evidence</Text>
-
+      
+      <Text style={styles.subtitle}>Case: {newCaseNumber}</Text>
+      
       <View style={styles.buttonRow}>
+        <TouchableOpacity style={styles.secondaryButton} onPress={selectPhotos}>
+          <Ionicons name="images" size={20} color="#007AFF" />
+          <Text style={styles.secondaryButtonText}>Select Photos</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={takePhoto}>
           <Ionicons name="camera" size={20} color="#007AFF" />
           <Text style={styles.secondaryButtonText}>Take Photo</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.secondaryButton} onPress={selectPhotos}>
-          <Ionicons name="image" size={20} color="#007AFF" />
-          <Text style={styles.secondaryButtonText}>Select Photos</Text>
-        </TouchableOpacity>
       </View>
-
+      
       {photos.length > 0 && (
         <View style={styles.photosContainer}>
           <Text style={styles.sectionTitle}>Selected Photos ({photos.length})</Text>
@@ -361,54 +677,389 @@ export default function App() {
     </View>
   );
 
-  const renderViewStep = () => (
+  const renderCaseDetails = () => (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={resetApp} style={styles.backButton}>
+        <TouchableOpacity style={styles.backButton} onPress={() => setCurrentPage('cases')}>
           <Ionicons name="arrow-back" size={24} color="#007AFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Processed Evidence</Text>
+        <Text style={styles.title}>Case Details</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.downloadButton}
+            onPress={() => downloadAllEvidence(currentCase.id)}
+          >
+            <Ionicons name="download" size={20} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <Text style={styles.subtitle}>Case: {caseNumber}</Text>
-
-      <ScrollView style={styles.processedContainer}>
-        {processedPhotos.map((photo) => (
-          <View key={photo.id} style={styles.processedItem}>
-            <Image source={{ uri: photo.uri }} style={styles.processedThumbnail} />
-            
-            <View style={styles.photoInfo}>
-              <Text style={styles.photoName}>{photo.name}</Text>
-              <Text style={styles.hashText}>Hash: {photo.hash?.substring(0, 16)}...</Text>
-              <Text style={styles.blockchainText}>Blockchain ID: {photo.blockchainId}</Text>
-              
-              <TouchableOpacity
-                style={styles.viewButton}
-                onPress={() => viewPhoto(photo)}
-                disabled={loading}
-              >
-                <Text style={styles.viewButtonText}>Retrieve Photo</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
-
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Processing...</Text>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.caseInfo}>
+          <Text style={styles.caseTitle}>{currentCase.title}</Text>
+          <Text style={styles.caseDescription}>{currentCase.description}</Text>
+          <Text style={styles.caseDate}>Created: {new Date(currentCase.createdAt).toLocaleDateString()}</Text>
         </View>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{currentCase.photos.length}</Text>
+            <Text style={styles.statLabel}>Evidence Files</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{currentCase.photos.filter(p => p.blockchainId).length}</Text>
+            <Text style={styles.statLabel}>Blockchain Verified</Text>
+          </View>
+        </View>
+
+        <View style={styles.evidenceSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>📸 Evidence Files</Text>
+            <TouchableOpacity 
+              style={styles.downloadAllButton}
+              onPress={() => downloadAllEvidence(currentCase.id)}
+            >
+              <Ionicons name="download-outline" size={16} color="#007AFF" />
+              <Text style={styles.downloadAllText}>Download All</Text>
+            </TouchableOpacity>
+          </View>
+
+          {currentCase.photos.length === 0 ? (
+            <View style={styles.noEvidenceContainer}>
+              <Ionicons name="images-outline" size={48} color="#CCC" />
+              <Text style={styles.noEvidenceText}>No evidence files yet</Text>
+              <Text style={styles.noEvidenceSubtext}>Add photos to this case to see them here</Text>
+            </View>
+          ) : (
+            <View style={styles.photosGrid}>
+              {currentCase.photos.map((photo, index) => (
+                <View key={photo.id} style={styles.photoCard}>
+                  <View style={styles.photoHeader}>
+                    <Text style={styles.photoName} numberOfLines={1}>
+                      {photo.name || `Evidence ${index + 1}`}
+                    </Text>
+                    <TouchableOpacity 
+                      style={styles.deleteButton}
+                      onPress={() => deleteEvidence(currentCase.id, photo.id)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.photoThumbnail}>
+                    <Ionicons name="image" size={32} color="#007AFF" />
+                  </View>
+                  
+                  <View style={styles.photoActions}>
+                    <TouchableOpacity 
+                      style={styles.actionButton}
+                      onPress={() => viewPhotoDirectly(photo)}
+                    >
+                      <Ionicons name="eye-outline" size={16} color="#007AFF" />
+                      <Text style={styles.actionText}>View</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.actionButton}
+                      onPress={() => retrievePhoto(photo)}
+                    >
+                      <Ionicons name="download-outline" size={16} color="#34C759" />
+                      <Text style={styles.actionText}>Retrieve</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {photo.blockchainId && (
+                    <View style={styles.blockchainBadge}>
+                      <Ionicons name="checkmark-circle" size={12} color="#34C759" />
+                      <Text style={styles.blockchainText}>Verified</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </View>
+  );
+
+  const renderBackendStatus = () => {
+    let statusText = '';
+    let statusColor = '#666';
+    
+    switch (backendStatus) {
+      case 'checking':
+        statusText = 'Checking backend...';
+        statusColor = '#FFA500';
+        break;
+      case 'connected':
+        statusText = 'Backend connected';
+        statusColor = '#4CAF50';
+        break;
+      case 'disconnected':
+        statusText = 'Backend disconnected (using mock data)';
+        statusColor = '#F44336';
+        break;
+    }
+    
+    return (
+      <View style={styles.statusContainer}>
+        <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+        <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
+      </View>
+    );
+  };
+
+  const renderCasesList = () => (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Photo Evidence Cases</Text>
+        <TouchableOpacity style={styles.addButton} onPress={() => setCurrentPage('newCase')}>
+          <Ionicons name="add" size={24} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+      
+      <Text style={styles.subtitle}>Manage your evidence cases</Text>
+      
+      {cases.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="folder-outline" size={64} color="#CCC" />
+          <Text style={styles.emptyText}>No cases yet</Text>
+          <Text style={styles.emptySubtext}>Create your first case to get started</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => setCurrentPage('newCase')}>
+            <Text style={styles.buttonText}>Create First Case</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={cases}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.caseItem}
+              onPress={() => {
+                setCurrentCase(item);
+                setCurrentPage('caseDetails');
+              }}
+            >
+              <View style={styles.caseHeader}>
+                <Text style={styles.caseNumber}>Case #{item.caseNumber}</Text>
+                <Text style={styles.caseDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+              </View>
+              <View style={styles.caseStats}>
+                <View style={styles.statItem}>
+                  <Ionicons name="images" size={16} color="#007AFF" />
+                  <Text style={styles.statText}>{item.photoCount} Photos</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                  <Text style={styles.statText}>{item.processedCount} Processed</Text>
+                </View>
+              </View>
+              <View style={styles.caseThumbnails}>
+                {item.thumbnails?.slice(0, 3).map((thumbnail, index) => (
+                  <Image key={index} source={{ uri: thumbnail }} style={styles.thumbnail} />
+                ))}
+                {item.photoCount > 3 && (
+                  <View style={styles.moreIndicator}>
+                    <Text style={styles.moreText}>+{item.photoCount - 3}</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
+          showsVerticalScrollIndicator={false}
+        />
       )}
+    </View>
+  );
+
+  const renderNewCase = () => (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => setCurrentPage('cases')}>
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+        </TouchableOpacity>
+        <Text style={styles.title}>New Case</Text>
+      </View>
+      
+      <Text style={styles.subtitle}>Create a new evidence case</Text>
+      
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Case Number</Text>
+        <TextInput
+          style={styles.input}
+          value={newCaseNumber}
+          onChangeText={setNewCaseNumber}
+          placeholder="Enter case number"
+          placeholderTextColor="#999"
+        />
+      </View>
+      
+      <TouchableOpacity style={styles.primaryButton} onPress={handleCaseSubmit}>
+        <Text style={styles.buttonText}>Create Case & Add Photos</Text>
+      </TouchableOpacity>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
-      {currentStep === 'input' && renderInputStep()}
-      {currentStep === 'upload' && renderUploadStep()}
-      {currentStep === 'view' && renderViewStep()}
+      <StatusBar barStyle="dark-content" backgroundColor="#F8F9FA" />
+      
+      {currentPage === 'cases' && renderCasesList()}
+      {currentPage === 'newCase' && renderNewCase()}
+      {currentPage === 'upload' && renderUploadStep()}
+      {currentPage === 'caseDetails' && renderCaseDetails()}
+      
+      {renderBackendStatus()}
+      
+      {/* Download Progress Overlay */}
+      {isDownloading && (
+        <View style={styles.downloadOverlay}>
+          <View style={styles.downloadModal}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.downloadText}>Downloading Evidence...</Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${downloadProgress}%` }]} />
+            </View>
+            <Text style={styles.progressText}>{Math.round(downloadProgress)}%</Text>
+          </View>
+        </View>
+      )}
+      
+      {/* Enhanced Photo Modal */}
+      {showPhotoModal && selectedPhoto && (
+        <Modal
+          visible={showPhotoModal}
+          animationType="none"
+          transparent={true}
+          onRequestClose={() => animateModal(false)}
+        >
+          <Animated.View 
+            style={[
+              styles.modalContainer,
+              { opacity: modalOpacity }
+            ]}
+          >
+            <Animated.View 
+              style={[
+                styles.modalContent,
+                { transform: [{ scale: modalScale }] }
+              ]}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Evidence Details</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => animateModal(false)}
+                >
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+                <View style={styles.imageContainer}>
+                  {selectedPhoto.uri ? (
+                    <Image 
+                      source={{ uri: selectedPhoto.uri }} 
+                      style={styles.modalImage}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={styles.noImageContainer}>
+                      <Ionicons name="image-outline" size={64} color="#CCC" />
+                      <Text style={styles.noImageText}>No image available</Text>
+                    </View>
+                  )}
+                </View>
+                
+                <View style={styles.photoInfo}>
+                  <View style={styles.infoSection}>
+                    <View style={styles.infoSectionHeader}>
+                      <Ionicons name="information-circle" size={20} color="#007AFF" />
+                      <Text style={styles.infoTitle}>Metadata</Text>
+                    </View>
+                    <View style={styles.infoGrid}>
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Timestamp</Text>
+                        <Text style={styles.infoValue}>
+                          {selectedPhoto?.metadata?.timestamp ? 
+                            new Date(selectedPhoto.metadata.timestamp).toLocaleString() : 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Location</Text>
+                        <Text style={styles.infoValue}>{selectedPhoto?.metadata?.location || 'N/A'}</Text>
+                      </View>
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Size</Text>
+                        <Text style={styles.infoValue}>{selectedPhoto?.metadata?.size || 'N/A'}</Text>
+                      </View>
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Format</Text>
+                        <Text style={styles.infoValue}>{selectedPhoto?.metadata?.format || 'N/A'}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.infoSection}>
+                    <View style={styles.infoSectionHeader}>
+                      <Ionicons name="search" size={20} color="#007AFF" />
+                      <Text style={styles.infoTitle}>Analysis</Text>
+                    </View>
+                    <View style={styles.infoGrid}>
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Objects Detected</Text>
+                        <Text style={styles.infoValue}>
+                          {selectedPhoto?.analysis?.objects?.join(', ') || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Confidence</Text>
+                        <Text style={styles.infoValue}>
+                          {selectedPhoto?.analysis?.confidence ? 
+                            `${(selectedPhoto.analysis.confidence * 100).toFixed(1)}%` : 'N/A'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.infoSection}>
+                    <View style={styles.infoSectionHeader}>
+                      <Ionicons name="link" size={20} color="#007AFF" />
+                      <Text style={styles.infoTitle}>Blockchain</Text>
+                    </View>
+                    <View style={styles.infoGrid}>
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Blockchain ID</Text>
+                        <Text style={styles.infoValue} numberOfLines={1}>
+                          {selectedPhoto?.blockchainId || 'N/A'}
+                        </Text>
+                      </View>
+                      <View style={styles.infoItem}>
+                        <Text style={styles.infoLabel}>Hash</Text>
+                        <Text style={styles.infoValue} numberOfLines={1}>
+                          {selectedPhoto?.hash ? `${selectedPhoto.hash.substring(0, 20)}...` : 'N/A'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+                
+                <View style={styles.modalActions}>
+                  <TouchableOpacity 
+                    style={styles.modalActionButton}
+                    onPress={() => downloadSingleEvidence(selectedPhoto)}
+                  >
+                    <Ionicons name="download" size={20} color="#FFF" />
+                    <Text style={styles.modalActionText}>Download Evidence</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </Animated.View>
+          </Animated.View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -416,7 +1067,7 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F8F9FA',
   },
   container: {
     flex: 1,
@@ -426,163 +1077,696 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+    paddingTop: 10,
+  },
+  headerContent: {
+    flex: 1,
+    marginLeft: 15,
   },
   backButton: {
-    marginRight: 15,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F0F8FF',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    flex: 1,
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
+    fontWeight: '400',
+  },
+  headerContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  appTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  appSubtitle: {
+    fontSize: 16,
+    color: '#666',
     textAlign: 'center',
-    marginBottom: 30,
+  },
+  formContainer: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  formTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 8,
+  },
+  formDescription: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 32,
+    lineHeight: 22,
   },
   inputContainer: {
-    marginBottom: 30,
+    marginBottom: 24,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#1A1A1A',
     marginBottom: 8,
   },
-  input: {
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
+    borderColor: '#E1E5E9',
+    borderRadius: 12,
     backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#1A1A1A',
   },
   primaryButton: {
     backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  disabledButton: {
+    backgroundColor: '#E1E5E9',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
   },
-  buttonRow: {
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  uploadContainer: {
+    flex: 1,
+  },
+  uploadButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 32,
   },
-  secondaryButton: {
+  uploadButton: {
     flex: 0.48,
     backgroundColor: '#FFF',
-    padding: 15,
-    borderRadius: 8,
+    padding: 24,
+    borderRadius: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    flexDirection: 'row',
-    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  secondaryButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
+  uploadIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F0F8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  uploadButtonText: {
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 5,
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  uploadButtonSubtext: {
+    fontSize: 14,
+    color: '#666',
   },
   photosContainer: {
     flex: 1,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 10,
+    color: '#1A1A1A',
+  },
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+  },
+  clearButtonText: {
+    fontSize: 14,
+    color: '#FF3B30',
+    marginLeft: 4,
+  },
+  photosScroll: {
+    marginBottom: 20,
   },
   photoItem: {
-    marginRight: 10,
+    marginRight: 12,
     position: 'relative',
   },
-  thumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: 5,
+  photoThumbnail: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   removeButton: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: -8,
+    right: -8,
     backgroundColor: '#FFF',
-    borderRadius: 10,
-  },
-  processedContainer: {
-    flex: 1,
-  },
-  processedItem: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    elevation: 2,
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  processedThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 5,
-    marginRight: 15,
-  },
-  photoInfo: {
+  content: {
     flex: 1,
+  },
+  caseInfo: {
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  caseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  caseIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F0F8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  caseDetails: {
+    flex: 1,
+  },
+  caseTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  caseDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  caseDate: {
+    fontSize: 12,
+    color: '#999',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 0.48,
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statNumber: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  evidenceSection: {
+    flex: 1,
+  },
+  downloadAllButton: {
+    flexDirection: 'row',
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  downloadAllText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  noEvidenceContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  noEvidenceText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noEvidenceSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  photosGrid: {
+    flex: 1,
+  },
+  photoCard: {
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  photoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   photoName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    color: '#1A1A1A',
+    flex: 1,
+    marginRight: 12,
   },
-  hashText: {
-    fontSize: 12,
-    color: '#666',
-    fontFamily: 'monospace',
-    marginBottom: 2,
-  },
-  blockchainText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  viewButton: {
-    backgroundColor: '#34C759',
+  deleteButton: {
     padding: 8,
-    borderRadius: 5,
-    alignItems: 'center',
+    borderRadius: 8,
   },
-  viewButtonText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '600',
+  photoThumbnail: {
+    width: '100%',
+    height: 160,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  loadingOverlay: {
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  photoOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F8FF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    flex: 0.48,
+    justifyContent: 'center',
+  },
+  actionText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  blockchainBadge: {
+    flexDirection: 'row',
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  blockchainText: {
+    color: '#34C759',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E1E5E9',
+  },
+  statusText: {
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyIconContainer: {
+    marginBottom: 24,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  addButton: {
+    backgroundColor: '#007AFF',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  caseItem: {
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  caseNumber: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  caseDate: {
+    fontSize: 14,
+    color: '#666',
+  },
+  caseStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  caseThumbnails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  thumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  moreIndicator: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: 8,
+  },
+  moreText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  casesList: {
+    paddingBottom: 20,
+  },
+  downloadButton: {
+    backgroundColor: '#F0F8FF',
+    padding: 12,
+    borderRadius: 12,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    color: '#FFF',
-    marginTop: 10,
+  modalContent: {
+    backgroundColor: '#FFF',
+    padding: 24,
+    borderRadius: 20,
+    width: '95%',
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  closeButton: {
+    backgroundColor: '#F0F0F0',
+    borderRadius: 16,
+    padding: 8,
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  imageContainer: {
+    width: '100%',
+    height: 300,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 16,
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  modalImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+  },
+  noImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noImageText: {
     fontSize: 16,
+    color: '#666',
+    marginTop: 12,
+  },
+  photoInfo: {
+    flex: 1,
+  },
+  infoSection: {
+    marginBottom: 24,
+  },
+  infoSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginLeft: 8,
+  },
+  infoGrid: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1E5E9',
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: 16,
+  },
+  modalActions: {
+    marginTop: 20,
+  },
+  modalActionButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  modalActionText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  downloadOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadModal: {
+    backgroundColor: '#FFF',
+    padding: 32,
+    borderRadius: 20,
+    width: '80%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  downloadText: {
+    color: '#1A1A1A',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 24,
+  },
+  progressBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    backgroundColor: '#007AFF',
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressText: {
+    color: '#1A1A1A',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

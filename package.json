@@ -6,7 +6,12 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "dev": "node scripts/start-dev.js",
+    "backend": "cd backend && python main.py",
+    "backend:install": "cd backend && pip install -r requirements.txt",
+    "backend:status": "powershell -Command \"$port8000 = netstat -an | findstr ':8000' | findstr 'LISTENING'; if ($port8000) { Write-Host '✅ Backend is running on port 8000' -ForegroundColor Green } else { Write-Host '❌ Backend is not running' -ForegroundColor Red }\"",
+    "backend:test": "powershell -Command \"try { $response = Invoke-RestMethod -Uri 'http://192.168.0.4:8000/' -Method Get -TimeoutSec 5; Write-Host '✅ Backend is healthy' -ForegroundColor Green } catch { Write-Host '❌ Backend is not responding' -ForegroundColor Red }\""
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
@@ -15,8 +20,9 @@
     "expo-crypto": "~14.1.5",
     "expo-document-picker": "~13.1.5",
     "expo-file-system": "~18.1.10",
-    "expo-image-picker": "~16.1.4",
+    "expo-image-picker": "^16.1.4",
     "expo-permissions": "~14.2.1",
+    "expo-sharing": "~13.1.5",
     "expo-status-bar": "~2.2.3",
     "metro": "^0.82.4",
     "react": "^19.0.0",

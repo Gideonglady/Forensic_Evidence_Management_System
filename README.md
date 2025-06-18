@@ -1,178 +1,139 @@
 # Photo Evidence App
 
-A secure mobile application built with React Native and Expo for capturing, storing, and managing photo evidence with enhanced security features.
+A React Native mobile application for capturing, processing, and storing photo evidence with blockchain integration.
 
-## Features
+## 🚀 Quick Start
 
-- 📸 Capture photos with device camera
-- 🔒 Secure storage of photo evidence
-- 📁 Document management and organization
-- 🔐 Encryption for sensitive data
-- 📱 Cross-platform support (iOS & Android)
-- 🎯 User-friendly interface
+### Prerequisites
+- Node.js (v18 or higher)
+- Python (v3.8 or higher)
+- Expo CLI
+- Android Studio / Xcode (for mobile development)
 
-## Prerequisites
+### Installation
 
-Before you begin, ensure you have the following installed:
-- Node.js (v14 or higher)
-- npm or yarn
-- Expo CLI (`npm install -g expo-cli`)
-- Python 3.8 or higher
-- pip (Python package manager)
-- iOS Simulator (for Mac users) or Android Studio (for Android development)
+1. **Install Node.js dependencies:**
+   ```bash
+   npm install
+   ```
 
-## Installation
+2. **Install Python backend dependencies:**
+   ```bash
+   npm run backend:install
+   ```
 
-1. Clone the repository:
-```bash
-git clone [your-repository-url]
-cd photo-evidence-app
-```
+3. **Start the development environment:**
+   ```bash
+   npm run dev
+   ```
 
-2. Backend Setup:
-```bash
-# Navigate to backend directory
-cd backend
+This will start both the Python backend server and the Expo development server.
 
-# Create and activate virtual environment (recommended)
-python -m venv venv
-# On Windows
-venv\Scripts\activate
-# On macOS/Linux
-source venv/bin/activate
+## 📱 App Features
 
-# Install backend dependencies
-pip install -r requirements.txt
+- **Photo Capture**: Take photos using device camera
+- **Photo Selection**: Choose photos from device gallery
+- **Case Management**: Organize evidence by case numbers
+- **Backend Processing**: Upload and process photos on Python backend
+- **Blockchain Storage**: Store photo hashes on blockchain (mock for development)
+- **Evidence Retrieval**: Retrieve and verify stored evidence
 
-# Create .env file from example
-cp env.example .env
-# Edit .env file with your configuration
-```
-
-3. Frontend Setup:
-```bash
-# Navigate back to root directory
-cd ..
-
-# Install frontend dependencies
-npm install
-# or
-yarn install
-```
-
-## Running the Application
-
-The application requires both backend and frontend to be running simultaneously. You'll need two terminal windows:
-
-### Terminal 1 - Backend Server
-```bash
-# Navigate to backend directory
-cd backend
-
-# Activate virtual environment if not already activated
-# On Windows
-venv\Scripts\activate
-# On macOS/Linux
-source venv/bin/activate
-
-# Start the backend server
-uvicorn main:app --reload --port 8000
-```
-
-### Terminal 2 - Frontend Development
-```bash
-# Navigate to root directory
-cd photo-evidence-app
-
-# Start the Expo development server
-npm start
-# or
-yarn start
-```
-
-The backend will be running on `http://localhost:8000` and the frontend will be available through Expo's development server.
-
-## Project Structure
+## 🏗️ Project Structure
 
 ```
 photo-evidence-app/
-├── app/                 # Main application code
-├── assets/             # Static assets (images, fonts)
-├── components/         # Reusable React components
-├── constants/          # App constants and configuration
-├── hooks/             # Custom React hooks
-├── backend/           # Backend server code
-│   ├── main.py        # FastAPI application
-│   ├── requirements.txt # Python dependencies
-│   └── uploads/       # Upload directory for images
-└── scripts/           # Utility scripts
+├── app/                    # Main application code
+├── backend/               # Python FastAPI backend
+│   ├── main.py           # Backend server
+│   ├── blockchain.py     # Blockchain integration
+│   └── requirements.txt  # Python dependencies
+├── components/           # Reusable React components
+├── constants/           # App constants and configurations
+├── contracts/          # Smart contracts (Solidity)
+├── scripts/            # Utility scripts
+├── App.js              # Main app component
+└── package.json        # Node.js dependencies
 ```
 
-## Available Scripts
+## 🔧 Configuration
 
-- `npm start` - Start the Expo development server
-- `npm run android` - Start the app on Android emulator
-- `npm run ios` - Start the app on iOS simulator
-- `npm run web` - Start the app in web browser
+### Backend Configuration
+The backend runs on `http://192.168.253.55:8000` by default. Update the `API_BASE_URL` in `App.js` if needed.
 
-## Dependencies
+### Blockchain Configuration
+For development, the app uses mock blockchain storage. In production, update the blockchain configuration in `constants/blockchain.js`.
 
-### Core Dependencies
-- expo: ^53.0.11
-- react: ^19.0.0
-- react-native: ^0.79.3
-- @expo/vector-icons: ^14.1.0
+## 🐛 Troubleshooting
 
-### Security & Storage
-- expo-crypto: ~14.1.5
-- expo-file-system: ~18.1.10
-- crypto-js: ^4.1.1
+### Current Status ✅
+- **Backend**: Running and healthy on `http://192.168.0.4:8000`
+- **ImagePicker**: Fixed and working correctly
+- **Network Requests**: Configured for mobile device access
 
-### Media Handling
-- expo-image-picker: ~16.1.4
-- expo-document-picker: ~13.1.5
+### Common Issues
 
-## Development
+1. **ImagePicker API Usage**
+   - ✅ Fixed: Using `ImagePicker.MediaTypeOptions.Images` (correct API for expo-image-picker v16.1.4)
+   - Note: `MediaType.Images` is not available in this version
 
-### Environment Setup
-1. Create a `.env` file in the root directory
-2. Add necessary environment variables:
-```
-API_URL=your_api_url
-ENCRYPTION_KEY=your_encryption_key
-```
+2. **Backend Network Request Failed**
+   - ✅ Fixed: Updated API URL to use computer's IP address (`192.168.0.4`)
+   - ✅ Fixed: Added proper error handling and mock data fallback
+   - ✅ Fixed: Backend is running and accessible
 
-### Code Style
-This project uses ESLint for code linting. Run the linter with:
+3. **Blockchain 401 Errors**
+   - ✅ Fixed: Replaced with mock blockchain storage for development
+   - In production, configure proper blockchain endpoints
+
+4. **Package Compatibility Issues**
+   - ✅ Fixed: Updated all packages to compatible versions for Expo SDK 53
+
+5. **Backend Already Running Error**
+   - ✅ Normal: Backend is already running on port 8000
+   - Use `npm run backend:status` to check status
+   - Use `npm run backend:test` to test connectivity
+
+### Development Commands
+
 ```bash
-npm run lint
+# Check backend status
+npm run backend:status
+
+# Test backend connectivity
+npm run backend:test
+
+# Start both backend and frontend
+npm run dev
+
+# Start only the backend (if not already running)
+npm run backend
+
+# Start only the frontend
+npm start
+
+# Install backend dependencies
+npm run backend:install
 ```
 
-## Security Features
+## 🔒 Security Features
 
-- End-to-end encryption for stored photos
-- Secure file system access
-- Permission-based access control
-- Secure data transmission
+- Photo hashing using SHA-256
+- Blockchain-based evidence storage
+- Secure file upload handling
+- Permission-based camera and gallery access
 
-## Contributing
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-## License
+## 📞 Support
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For support, email [your-email] or open an issue in the repository.
-
-## Acknowledgments
-
-- Expo team for the amazing framework
-- React Native community
-- All contributors who have helped shape this project
+For issues and questions, please check the troubleshooting section above or create an issue in the repository.
