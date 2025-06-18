@@ -131,4 +131,20 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
     
     throw error;
   }
+}
+
+export async function aiAnalyzeCase(caseNumber) {
+  const formData = new FormData();
+  formData.append('case_number', caseNumber);
+  
+  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.38.55:8000'}/ai-analyze-case`, {
+    method: 'POST',
+    body: formData,
+  });
+  return res.json();
+}
+
+export async function downloadReport(filename) {
+  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.38.55:8000'}/download-report/${filename}`);
+  return res;
 } 

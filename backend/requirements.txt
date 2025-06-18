@@ -2,3 +2,7 @@ fastapi
 uvicorn
 pydantic
 papermill
+torch
+transformers
+pillow
+accelerate
