@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, FileResponse
 import shutil
 import json
 from datetime import datetime
+from blockchain import blockchain_service
 
 app = FastAPI()
 
@@ -22,6 +23,15 @@ class PipelineResponse(BaseModel):
     message: str
     output: str = None
     error: str = None
+
+class EvidenceRequest(BaseModel):
+    caseNumber: str
+    hash: str
+    metadata: dict
+
+class EvidenceRetrievalRequest(BaseModel):
+    caseNumber: str
+    transactionHash: str
 
 @app.post("/api/run-pipeline", response_model=PipelineResponse)
 def run_pipeline():
@@ -92,6 +102,54 @@ async def retrieve_photo(jsonData: dict):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/store-evidence")
+async def store_evidence(request: EvidenceRequest):
+    try:
+        # Store evidence on blockchain
+        result = blockchain_service.store_evidence(request.caseNumber, request.hash)
+        
+        return {
+            "status": "success",
+            "message": "Evidence stored on blockchain successfully",
+            "transaction_hash": result["transaction_hash"],
+            "block_number": result["block_number"]
+        }
+    except Exception as e:
+        print(f"Error storing evidence on blockchain: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/get-evidence")
+async def get_evidence(request: EvidenceRetrievalRequest):
+    try:
+        # Retrieve evidence from blockchain
+        result = blockchain_service.get_evidence(request.caseNumber)
+        
+        return {
+            "status": "success",
+            "message": "Evidence retrieved from blockchain successfully",
+            "case_number": result["case_number"],
+            "hash": result["hash"]
+        }
+    except Exception as e:
+        print(f"Error retrieving evidence from blockchain: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/blockchain-status")
+async def blockchain_status():
+    try:
+        # Check if blockchain connection is working
+        is_connected = blockchain_service.web3.is_connected()
+        return {
+            "status": "connected" if is_connected else "disconnected",
+            "network": "localhost" if is_connected else "unknown",
+            "contract_address": blockchain_service.contract_address
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
     import uvicorn

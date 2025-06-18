@@ -5,7 +5,6 @@ contract EvidenceStorage {
     mapping(string => string) public evidence;
     
     event EvidenceStored(string caseNumber, string hash);
-    event EvidenceRetrieved(string caseNumber, string hash);
 
     function storeEvidence(string memory caseNumber, string memory hash) public {
         evidence[caseNumber] = hash;
@@ -13,8 +12,6 @@ contract EvidenceStorage {
     }
 
     function getEvidence(string memory caseNumber) public view returns (string memory) {
-        string memory hash = evidence[caseNumber];
-        emit EvidenceRetrieved(caseNumber, hash);
-        return hash;
+        return evidence[caseNumber];
     }
 } 

@@ -1,0 +1,15 @@
+{
+  "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "testCaseNumber": "TEST_CASE_001",
+  "testHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  "blockNumber": 2,
+  "retrievedHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  "hashMatch": true,
+  "totalEvents": 4,
+  "latestBlock": {
+    "number": 5,
+    "hash": "0xc9abc8716385c38aa560e2340adb8873059c5d4fd76b2a7b0963a91fb9074311",
+    "timestamp": 1750224523
+  },
+  "testTimestamp": "2025-06-18T05:28:39.057Z"
+}

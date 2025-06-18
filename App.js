@@ -40,6 +40,9 @@ export default function App() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [modalScale] = useState(new Animated.Value(0));
   const [modalOpacity] = useState(new Animated.Value(0));
+  const [blockchainProof, setBlockchainProof] = useState(null);
+  const [showBlockchainProof, setShowBlockchainProof] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
     requestPermissions();
@@ -244,22 +247,109 @@ export default function App() {
 
   const storeInBlockchain = async (hash, jsonData) => {
     try {
-      // For development, we'll use a mock blockchain storage
-      // In production, you would connect to a real blockchain
       console.log('Storing in blockchain:', hash);
       
-      // Mock blockchain storage
-      const mockBlockchainId = `blockchain_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Show blockchain proof modal
+      setBlockchainProof({
+        status: 'processing',
+        message: 'Storing evidence hash on blockchain...',
+        hash: hash,
+        caseNumber: newCaseNumber,
+        timestamp: new Date().toISOString()
+      });
+      setShowBlockchainProof(true);
+      setUploadProgress(10);
       
-      // Simulate blockchain storage delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (CONFIG.USE_MOCK_BLOCKCHAIN) {
+        // Mock blockchain storage for development
+        const mockBlockchainId = `blockchain_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Simulate blockchain storage steps
+        setUploadProgress(30);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        setBlockchainProof(prev => ({
+          ...prev,
+          status: 'mining',
+          message: 'Transaction being mined...',
+          progress: 50
+        }));
+        setUploadProgress(50);
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        setBlockchainProof(prev => ({
+          ...prev,
+          status: 'confirmed',
+          message: 'Transaction confirmed on blockchain!',
+          transactionHash: mockBlockchainId,
+          blockNumber: Math.floor(Math.random() * 1000) + 1,
+          gasUsed: '50000',
+          progress: 100
+        }));
+        setUploadProgress(100);
+        
+        console.log('Mock blockchain storage successful:', mockBlockchainId);
+        return mockBlockchainId;
+      }
       
-      console.log('Blockchain storage successful:', mockBlockchainId);
-      return mockBlockchainId;
+      // Real blockchain storage
+      setBlockchainProof(prev => ({
+        ...prev,
+        status: 'sending',
+        message: 'Sending transaction to blockchain...',
+        progress: 20
+      }));
+      setUploadProgress(20);
+      
+      const response = await fetch(`${CONFIG.API_BASE_URL}/store-evidence`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          caseNumber: newCaseNumber,
+          hash: hash,
+          metadata: jsonData
+        }),
+      });
+
+      setUploadProgress(60);
+
+      if (!response.ok) {
+        throw new Error(`Blockchain storage failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      setBlockchainProof(prev => ({
+        ...prev,
+        status: 'confirmed',
+        message: 'Transaction confirmed on blockchain!',
+        transactionHash: result.transaction_hash,
+        blockNumber: result.block_number,
+        gasUsed: result.gas_used || '50000',
+        progress: 100
+      }));
+      setUploadProgress(100);
+      
+      console.log('Blockchain storage successful:', result);
+      return result.transaction_hash;
     } catch (error) {
       console.error('Blockchain storage error:', error);
-      // Return mock blockchain ID for development
-      return `mock_blockchain_${Date.now()}`;
+      
+      setBlockchainProof(prev => ({
+        ...prev,
+        status: 'error',
+        message: 'Blockchain storage failed. Using fallback.',
+        error: error.message,
+        progress: 0
+      }));
+      
+      if (CONFIG.USE_MOCK_BLOCKCHAIN) {
+        return `mock_blockchain_${Date.now()}`;
+      }
+      throw error;
     }
   };
 
@@ -276,13 +366,21 @@ export default function App() {
       for (let i = 0; i < photos.length; i++) {
         const photo = photos[i];
         
+        // Update progress for current photo
+        setBlockchainProof(prev => prev ? {
+          ...prev,
+          message: `Processing photo ${i + 1} of ${photos.length}...`,
+          currentPhoto: i + 1,
+          totalPhotos: photos.length
+        } : null);
+        
         // Step 1: Upload to backend and get JSON
         const jsonData = await uploadToBackend(photo);
         
         // Step 2: Generate hash
         const photoHash = generatePhotoHash(JSON.stringify(jsonData));
         
-        // Step 3: Store in blockchain
+        // Step 3: Store in blockchain with proof
         const blockchainId = await storeInBlockchain(photoHash, jsonData);
         
         const processedPhoto = {
@@ -334,11 +432,26 @@ export default function App() {
 
       setCurrentCase(caseData);
 
-      Alert.alert('Success', 'All photos processed and stored on blockchain!');
-      setCurrentPage('caseDetails');
+      // Show final success message
+      setBlockchainProof(prev => prev ? {
+        ...prev,
+        status: 'success',
+        message: `All ${processed.length} photos successfully stored on blockchain!`,
+        finalMessage: 'Your evidence is now permanently recorded on the blockchain with cryptographic proof.'
+      } : null);
+
+      setTimeout(() => {
+        setShowBlockchainProof(false);
+        setBlockchainProof(null);
+        Alert.alert('Success', 'All photos processed and stored on blockchain!');
+        setCurrentPage('caseDetails');
+      }, 3000);
+
     } catch (error) {
       Alert.alert('Error', 'Failed to process photos');
       console.error('Processing error:', error);
+      setShowBlockchainProof(false);
+      setBlockchainProof(null);
     } finally {
       setLoading(false);
     }
@@ -902,6 +1015,140 @@ export default function App() {
     </View>
   );
 
+  const renderBlockchainProofModal = () => {
+    if (!showBlockchainProof || !blockchainProof) return null;
+
+    const getStatusColor = () => {
+      switch (blockchainProof.status) {
+        case 'processing':
+        case 'sending':
+        case 'mining':
+          return '#FFA500';
+        case 'confirmed':
+        case 'success':
+          return '#4CAF50';
+        case 'error':
+          return '#F44336';
+        default:
+          return '#666';
+      }
+    };
+
+    const getStatusIcon = () => {
+      switch (blockchainProof.status) {
+        case 'processing':
+        case 'sending':
+        case 'mining':
+          return 'sync';
+        case 'confirmed':
+        case 'success':
+          return 'checkmark-circle';
+        case 'error':
+          return 'close-circle';
+        default:
+          return 'information-circle';
+      }
+    };
+
+    return (
+      <Modal
+        visible={showBlockchainProof}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowBlockchainProof(false)}
+      >
+        <View style={styles.blockchainProofContainer}>
+          <View style={styles.blockchainProofContent}>
+            <View style={styles.blockchainProofHeader}>
+              <Ionicons 
+                name={getStatusIcon()} 
+                size={32} 
+                color={getStatusColor()} 
+              />
+              <Text style={styles.blockchainProofTitle}>Blockchain Proof</Text>
+            </View>
+
+            <View style={styles.blockchainProofBody}>
+              <Text style={styles.blockchainProofMessage}>
+                {blockchainProof.message}
+              </Text>
+
+              {blockchainProof.currentPhoto && (
+                <Text style={styles.blockchainProofProgress}>
+                  Photo {blockchainProof.currentPhoto} of {blockchainProof.totalPhotos}
+                </Text>
+              )}
+
+              <View style={styles.blockchainProofDetails}>
+                <View style={styles.proofDetail}>
+                  <Text style={styles.proofLabel}>Case Number:</Text>
+                  <Text style={styles.proofValue}>{blockchainProof.caseNumber}</Text>
+                </View>
+
+                <View style={styles.proofDetail}>
+                  <Text style={styles.proofLabel}>Hash:</Text>
+                  <Text style={styles.proofValue} numberOfLines={1}>
+                    {blockchainProof.hash ? `${blockchainProof.hash.substring(0, 20)}...` : 'N/A'}
+                  </Text>
+                </View>
+
+                {blockchainProof.transactionHash && (
+                  <View style={styles.proofDetail}>
+                    <Text style={styles.proofLabel}>Transaction Hash:</Text>
+                    <Text style={styles.proofValue} numberOfLines={1}>
+                      {blockchainProof.transactionHash.substring(0, 20)}...
+                    </Text>
+                  </View>
+                )}
+
+                {blockchainProof.blockNumber && (
+                  <View style={styles.proofDetail}>
+                    <Text style={styles.proofLabel}>Block Number:</Text>
+                    <Text style={styles.proofValue}>{blockchainProof.blockNumber}</Text>
+                  </View>
+                )}
+
+                {blockchainProof.gasUsed && (
+                  <View style={styles.proofDetail}>
+                    <Text style={styles.proofLabel}>Gas Used:</Text>
+                    <Text style={styles.proofValue}>{blockchainProof.gasUsed}</Text>
+                  </View>
+                )}
+
+                <View style={styles.proofDetail}>
+                  <Text style={styles.proofLabel}>Timestamp:</Text>
+                  <Text style={styles.proofValue}>
+                    {new Date(blockchainProof.timestamp).toLocaleString()}
+                  </Text>
+                </View>
+              </View>
+
+              {blockchainProof.finalMessage && (
+                <View style={styles.finalMessageContainer}>
+                  <Text style={styles.finalMessage}>{blockchainProof.finalMessage}</Text>
+                </View>
+              )}
+
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${uploadProgress}%` }]} />
+              </View>
+              <Text style={styles.progressText}>{Math.round(uploadProgress)}%</Text>
+            </View>
+
+            {blockchainProof.status === 'error' && (
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setShowBlockchainProof(false)}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8F9FA" />
@@ -926,6 +1173,9 @@ export default function App() {
           </View>
         </View>
       )}
+      
+      {/* Blockchain Proof Modal */}
+      {renderBlockchainProofModal()}
       
       {/* Enhanced Photo Modal */}
       {showPhotoModal && selectedPhoto && (
@@ -1767,6 +2017,90 @@ const styles = StyleSheet.create({
   progressText: {
     color: '#1A1A1A',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  blockchainProofContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  blockchainProofContent: {
+    backgroundColor: '#FFF',
+    padding: 24,
+    borderRadius: 20,
+    width: '90%',
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  blockchainProofHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  blockchainProofTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginLeft: 12,
+  },
+  blockchainProofBody: {
+    flex: 1,
+  },
+  blockchainProofMessage: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  blockchainProofProgress: {
+    fontSize: 14,
+    color: '#007AFF',
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  blockchainProofDetails: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  proofDetail: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1E5E9',
+  },
+  proofLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  proofValue: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: 16,
+  },
+  finalMessageContainer: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  finalMessage: {
+    fontSize: 16,
+    color: '#2E7D32',
+    textAlign: 'center',
     fontWeight: '600',
   },
 });

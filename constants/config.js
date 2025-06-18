@@ -1,11 +1,11 @@
 // Configuration for the Photo Evidence App
 export const CONFIG = {
   // Backend API Configuration
-  API_BASE_URL: "http://192.168.253.55:8000",
+  API_BASE_URL: "http://192.168.0.4:8000",
   
   // Fallback URLs for different network scenarios
   FALLBACK_URLS: [
-    "http://192.168.253.55:8000",
+    "http://192.168.0.4:8000",
     "http://localhost:8000",
     "http://127.0.0.1:8000"
   ],
@@ -19,7 +19,7 @@ export const CONFIG = {
   
   // Development Settings
   DEBUG_MODE: true,
-  USE_MOCK_BLOCKCHAIN: true,
+  USE_MOCK_BLOCKCHAIN: false,
   
   // Network Timeouts
   REQUEST_TIMEOUT: 30000, // 30 seconds

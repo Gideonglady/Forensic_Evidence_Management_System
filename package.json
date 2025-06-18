@@ -11,7 +11,15 @@
     "backend": "cd backend && python main.py",
     "backend:install": "cd backend && pip install -r requirements.txt",
     "backend:status": "powershell -Command \"$port8000 = netstat -an | findstr ':8000' | findstr 'LISTENING'; if ($port8000) { Write-Host '✅ Backend is running on port 8000' -ForegroundColor Green } else { Write-Host '❌ Backend is not running' -ForegroundColor Red }\"",
-    "backend:test": "powershell -Command \"try { $response = Invoke-RestMethod -Uri 'http://192.168.0.4:8000/' -Method Get -TimeoutSec 5; Write-Host '✅ Backend is healthy' -ForegroundColor Green } catch { Write-Host '❌ Backend is not responding' -ForegroundColor Red }\""
+    "backend:test": "powershell -Command \"try { $response = Invoke-RestMethod -Uri 'http://192.168.0.4:8000/' -Method Get -TimeoutSec 5; Write-Host '✅ Backend is healthy' -ForegroundColor Green } catch { Write-Host '❌ Backend is not responding' -ForegroundColor Red }\"",
+    "blockchain:deploy": "npx hardhat run scripts/deploy.js --network localhost",
+    "blockchain:test": "node scripts/test-blockchain.js",
+    "blockchain:verify": "node scripts/verify-blockchain.js",
+    "blockchain:start": "npx hardhat node",
+    "blockchain:compile": "npx hardhat compile",
+    "blockchain:clean": "npx hardhat clean",
+    "blockchain:proof": "npm run blockchain:verify && echo 'Blockchain proof generated successfully!'",
+    "blockchain:test-ganache": "node test-ganache-connection.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
