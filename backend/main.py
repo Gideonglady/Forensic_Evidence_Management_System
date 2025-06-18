@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, FileResponse
 import shutil
 import json
 from datetime import datetime
+import socket
 
 # Make blockchain import optional
 try:
@@ -209,11 +210,16 @@ def download_evidence(case_number: str = Query(..., description="Case number to 
         files = [f for f in os.listdir(uploads_dir) if f.startswith(f"{case_number}_")]
         if not files:
             return {"status": "error", "message": "No evidence files found for this case.", "files": []}
-        # Return file names and download URLs with full backend URL
+        
+        # Get the current server's IP address dynamically
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+        
+        # Return file names and download URLs with dynamic backend URL
         file_infos = [
             {
                 "filename": f,
-                "url": f"http://192.168.0.4:8000/download-file/{f}"
+                "url": f"http://{local_ip}:8000/download-file/{f}"
             }
             for f in files
         ]

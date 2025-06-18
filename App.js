@@ -62,13 +62,19 @@ export default function App() {
 
   const handleCreateCase = async ({ caseNumber, description }) => {
     setLoadingNewCase(true);
-    const res = await createCase({ caseNumber, description });
-    setLoadingNewCase(false);
-    if (res.status === 'success') {
-      setCases([...cases, res.case]);
-      setShowNewCaseForm(false);
-    } else {
-      Alert.alert('Error', res.message || 'Failed to create case');
+    try {
+      const res = await createCase({ caseNumber, description });
+      if (res.status === 'success') {
+        setCases([...cases, res.case]);
+        setShowNewCaseForm(false);
+      } else {
+        Alert.alert('Error', res.message || 'Failed to create case');
+      }
+    } catch (error) {
+      console.error('Error creating case:', error);
+      Alert.alert('Error', 'Failed to create case. Please try again.');
+    } finally {
+      setLoadingNewCase(false);
     }
   };
 

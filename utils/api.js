@@ -1,20 +1,20 @@
 export async function fetchCases() {
-  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.0.4:8000'}/cases`);
+  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.38.55:8000'}/cases`);
   return res.json();
 }
 
 export async function fetchEvidenceFiles(caseNumber) {
-  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.0.4:8000'}/download-evidence?case_number=${caseNumber}`);
+  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.38.55:8000'}/download-evidence?case_number=${caseNumber}`);
   return res.json();
 }
 
 export async function downloadEvidenceFile(filename) {
-  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.0.4:8000'}/download-file/${filename}`);
+  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.38.55:8000'}/download-file/${filename}`);
   return res;
 }
 
 export async function deleteEvidenceFile(filename) {
-  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.0.4:8000'}/delete-evidence-file`, {
+  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.38.55:8000'}/delete-evidence-file`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ filename })
@@ -23,7 +23,7 @@ export async function deleteEvidenceFile(filename) {
 }
 
 export async function createCase(caseData) {
-  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.0.4:8000'}/create-case`, {
+  const res = await fetch(`${process.env.API_BASE_URL || 'http://192.168.38.55:8000'}/create-case`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(caseData)
@@ -46,7 +46,7 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
     formData.append('photo', photoFile);
 
     // Upload to backend
-    const response = await fetch(`${process.env.API_BASE_URL || 'http://192.168.0.4:8000'}/process-photo`, {
+    const response = await fetch(`${process.env.API_BASE_URL || 'http://192.168.38.55:8000'}/process-photo`, {
       method: 'POST',
       body: formData,
       headers: {
@@ -61,7 +61,7 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
     const uploadResult = await response.json();
     
     // Store evidence hash on blockchain
-    const blockchainResponse = await fetch(`${process.env.API_BASE_URL || 'http://192.168.0.4:8000'}/store-evidence`, {
+    const blockchainResponse = await fetch(`${process.env.API_BASE_URL || 'http://192.168.38.55:8000'}/store-evidence`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
