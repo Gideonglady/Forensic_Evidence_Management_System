@@ -61,5 +61,23 @@
     "photoCount": 0,
     "processedCount": 0,
     "thumbnails": []
+  },
+  {
+    "id": "case_1750295082.923989",
+    "caseNumber": "1",
+    "description": "",
+    "createdAt": "2025-06-19T06:34:42.924009",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750295234.102557",
+    "caseNumber": "9876",
+    "description": "Glady",
+    "createdAt": "2025-06-19T06:37:14.102576",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
   }
 ]
