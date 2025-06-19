@@ -3,7 +3,7 @@ import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { uploadPhoto } from '../utils/api';
+import { uploadPhoto, submitEvidenceHashes } from '../utils/api';
 
 export default function PhotoCapture({ visible, caseNumber, onClose, onPhotoUploaded }) {
   const [loading, setLoading] = useState(false);
@@ -116,53 +116,43 @@ export default function PhotoCapture({ visible, caseNumber, onClose, onPhotoUplo
     setUploadedCount(0);
     let successCount = 0;
     let errorCount = 0;
+    let evidenceHashes = [];
 
     try {
       for (let i = 0; i < capturedImages.length; i++) {
         const image = capturedImages[i];
         setUploadProgress(`Uploading photo ${i + 1} of ${capturedImages.length}...`);
-
         try {
           // Generate hash for the photo
           const photoHash = await generateHash(image.uri);
-          
-          // Upload photo to backend
-          const uploadResult = await uploadPhoto(caseNumber, image, photoHash);
-          
-          if (uploadResult.status === 'success') {
-            successCount++;
-            console.log(`✅ Photo ${i + 1} uploaded successfully`);
-          } else {
-            errorCount++;
-            console.log(`❌ Photo ${i + 1} upload failed: ${uploadResult.message}`);
-          }
+          // Upload photo to backend (file upload only)
+          await uploadPhoto(caseNumber, image, photoHash); // This will upload the file
+          evidenceHashes.push(photoHash);
+          successCount++;
         } catch (error) {
           errorCount++;
-          console.error(`❌ Photo ${i + 1} upload error:`, error);
+          console.error(`Photo ${i + 1} upload error:`, error);
         }
-        
         setUploadedCount(i + 1);
       }
-
-      // Show final results
-      const message = `Upload completed!\n\n✅ Successfully uploaded: ${successCount}\n❌ Failed: ${errorCount}`;
-      
-      if (successCount > 0) {
-        Alert.alert('Upload Complete', message, [{ 
-          text: 'OK', 
-          onPress: () => {
-            setCapturedImages([]);
-            setUploadProgress('');
-            setUploadedCount(0);
-            onPhotoUploaded && onPhotoUploaded({ successCount, errorCount });
-            onClose();
-          }
-        }]);
-      } else {
-        Alert.alert('Upload Failed', 'All photos failed to upload. Please try again.', [{ text: 'OK' }]);
+      // After all uploads, submit hashes for Merkle root
+      if (evidenceHashes.length > 0) {
+        setUploadProgress('Submitting evidence batch to blockchain...');
+        await submitEvidenceHashes(caseNumber, evidenceHashes);
       }
+      Alert.alert(
+        'Upload Complete',
+        'Evidence uploaded successfully.',
+        [{ text: 'OK', onPress: () => {
+          setCapturedImages([]);
+          setUploadProgress('');
+          setUploadedCount(0);
+          onPhotoUploaded && onPhotoUploaded({ successCount, errorCount });
+          onClose();
+        }}]
+      );
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Batch upload error:', error);
       Alert.alert('Upload Failed', error.message || 'Failed to upload photos');
     } finally {
       setLoading(false);

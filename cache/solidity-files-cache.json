@@ -1,0 +1,41 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "D:\\Mobileappfaer\\photo-evidence-app\\contracts\\MerkleEvidence.sol": {
+      "lastModificationDate": 1750312203876,
+      "contentHash": "94ce334d7979da60c4a93d7b4e3972a6",
+      "sourceName": "contracts/MerkleEvidence.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "MerkleEvidence"
+      ]
+    }
+  }
+}

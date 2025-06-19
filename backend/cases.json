@@ -79,5 +79,23 @@
     "photoCount": 0,
     "processedCount": 0,
     "thumbnails": []
+  },
+  {
+    "id": "case_1750325212.409331",
+    "caseNumber": "14",
+    "description": "",
+    "createdAt": "2025-06-19T14:56:52.409331",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750325284.956881",
+    "caseNumber": "16",
+    "description": "",
+    "createdAt": "2025-06-19T14:58:04.956881",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
   }
 ]

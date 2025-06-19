@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Query, Request
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Query, Request, Body
 from pydantic import BaseModel
 import subprocess
 import os
@@ -8,6 +8,9 @@ import shutil
 import json
 from datetime import datetime
 import socket
+from web3 import Web3
+from merkle_utils import get_merkle_root, get_merkle_proof, verify_merkle_proof
+import hashlib
 
 # Import forensic analysis functionality
 try:
@@ -52,6 +55,33 @@ class EvidenceRetrievalRequest(BaseModel):
 class CreateCaseRequest(BaseModel):
     caseNumber: str
     description: str = ""
+
+MERKLE_CONTRACT_ABI_PATH = os.path.join(os.path.dirname(__file__), "merkle_contract_abi.json")
+MERKLE_TREES_PATH = os.path.join(os.path.dirname(__file__), "merkle_trees.json")
+MERKLE_CONTRACT_ADDRESS = os.getenv("MERKLE_CONTRACT_ADDRESS")  # Set this in your .env or environment
+WEB3_PROVIDER = os.getenv("WEB3_PROVIDER", "http://127.0.0.1:8545")
+
+# Load contract ABI
+with open(MERKLE_CONTRACT_ABI_PATH) as f:
+    MERKLE_CONTRACT_ABI = json.load(f)
+
+# Connect to web3
+web3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER))
+contract = None
+if MERKLE_CONTRACT_ADDRESS:
+    contract = web3.eth.contract(address=MERKLE_CONTRACT_ADDRESS, abi=MERKLE_CONTRACT_ABI)
+
+# Helper to load/save Merkle trees off-chain
+
+def load_merkle_trees():
+    if os.path.exists(MERKLE_TREES_PATH):
+        with open(MERKLE_TREES_PATH, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_merkle_trees(data):
+    with open(MERKLE_TREES_PATH, 'w') as f:
+        json.dump(data, f, indent=2)
 
 @app.post("/api/run-pipeline", response_model=PipelineResponse)
 def run_pipeline():
@@ -447,6 +477,75 @@ def download_report(filename: str):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/submit-evidence-hashes")
+async def submit_evidence_hashes(
+    case_number: str = Body(...),
+    evidence_hashes: list = Body(...)
+):
+    """
+    Accepts a case number and a list of evidence hashes, builds a Merkle tree, stores the root on-chain, and saves the tree/proofs off-chain.
+    """
+    if not contract:
+        return {"status": "error", "message": "Contract not configured"}
+    # Hash leaves (evidence hashes should be hex strings)
+    leaves = [hashlib.sha256(h.encode()).hexdigest() for h in evidence_hashes]
+    merkle_root = get_merkle_root(leaves)  # This is a string, not a coroutine
+    if not merkle_root:
+        return {"status": "error", "message": "Could not build Merkle tree"}
+    # Store Merkle root on-chain
+    try:
+        account = web3.eth.accounts[0]
+        merkle_root_bytes = bytes.fromhex(merkle_root)
+        tx = contract.functions.storeMerkleRoot(case_number, merkle_root_bytes).build_transaction({
+            'from': account,
+            'nonce': web3.eth.get_transaction_count(account),
+            'gas': 3000000,
+            'gasPrice': web3.to_wei('1', 'gwei')
+        })
+        tx_hash = web3.eth.send_transaction(tx)
+    except ValueError as e:
+        return {"status": "error", "message": f"Invalid Merkle root hex: {str(e)}"}
+    except Exception as e:
+        return {"status": "error", "message": f"Blockchain error: {str(e)}"}
+    # Save Merkle tree and proofs off-chain
+    merkle_trees = load_merkle_trees()
+    merkle_trees[case_number] = {
+        "evidence_hashes": evidence_hashes,
+        "leaves": leaves,
+        "merkle_root": merkle_root,
+        "proofs": {h: get_merkle_proof(leaves, i) for i, h in enumerate(leaves)}
+    }
+    save_merkle_trees(merkle_trees)
+    return {"status": "success", "merkle_root": merkle_root, "tx_hash": tx_hash.hex()}
+
+@app.get("/get-merkle-root")
+async def get_merkle_root_api(case_number: str):
+    if not contract:
+        return {"status": "error", "message": "Contract not configured"}
+    merkle_root = contract.functions.getMerkleRoot(case_number).call()
+    # Convert bytes to hex string if needed
+    if isinstance(merkle_root, (bytes, bytearray)):
+        merkle_root = merkle_root.hex()
+    return {"status": "success", "merkle_root": merkle_root}
+
+@app.get("/get-merkle-proof")
+async def get_merkle_proof_api(case_number: str, evidence_hash: str):
+    """
+    Returns the Merkle proof for a given evidence hash and case number (from off-chain storage).
+    """
+    merkle_trees = load_merkle_trees()
+    case_data = merkle_trees.get(case_number)
+    if not case_data:
+        return {"status": "error", "message": "Case not found"}
+    # Hash the evidence_hash to match the leaf
+    leaf = hashlib.sha256(evidence_hash.encode()).hexdigest()
+    leaves = case_data["leaves"]
+    if leaf not in leaves:
+        return {"status": "error", "message": "Evidence hash not found in case"}
+    index = leaves.index(leaf)
+    proof = get_merkle_proof(leaves, index)
+    return {"status": "success", "proof": proof, "merkle_root": case_data["merkle_root"]}
 
 if __name__ == "__main__":
     import uvicorn

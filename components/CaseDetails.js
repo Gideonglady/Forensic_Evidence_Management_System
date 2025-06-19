@@ -4,7 +4,8 @@ import { Alert, FlatList, Image, Text, TouchableOpacity, View, ActivityIndicator
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
-import { aiAnalyzeCase, downloadReport } from '../utils/api';
+import { aiAnalyzeCase, downloadReport, getMerkleProof, getMerkleRoot } from '../utils/api';
+import * as Crypto from 'expo-crypto';
 
 export default function CaseDetails({
   caseData,
@@ -283,6 +284,34 @@ export default function CaseDetails({
     }
   };
 
+  const handleVerifyEvidence = async (file) => {
+    try {
+      // Hash the file URI and metadata (same as in PhotoCapture)
+      const imageData = {
+        uri: file.uri || file.url || file.filename || '',
+        timestamp: file.timestamp || Date.now(),
+        caseNumber: caseData.caseNumber,
+        size: file.size || 'unknown',
+        type: file.type || 'image/jpeg'
+      };
+      const dataString = JSON.stringify(imageData);
+      const evidenceHash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        dataString
+      );
+      // Get Merkle proof and root
+      const proofRes = await getMerkleProof(caseData.caseNumber, evidenceHash);
+      const rootRes = await getMerkleRoot(caseData.caseNumber);
+      if (proofRes.status === 'success' && rootRes.status === 'success') {
+        Alert.alert('Verification', `Evidence is included in the Merkle tree.\nMerkle Root: ${rootRes.merkle_root}`);
+      } else {
+        Alert.alert('Verification Failed', 'Evidence not found or error occurred.');
+      }
+    } catch (error) {
+      Alert.alert('Verification Error', error.message || 'Could not verify evidence.');
+    }
+  };
+
   return (
     <View style={{ flex: 1, padding: 20 }}>
       <TouchableOpacity onPress={onBack} style={{ marginBottom: 16 }}>
@@ -417,6 +446,9 @@ export default function CaseDetails({
                     ]);
                   }}>
                     <Ionicons name="trash" size={22} color="#FF3B30" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleVerifyEvidence(item)} style={{ marginLeft: 8, backgroundColor: '#28a745', borderRadius: 6, padding: 6 }}>
+                    <Text style={{ color: '#FFF', fontWeight: '600' }}>Verify</Text>
                   </TouchableOpacity>
                 </View>
               </View>

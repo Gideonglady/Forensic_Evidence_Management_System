@@ -1,6 +1,11 @@
 fastapi
 uvicorn
+web3==6.15.1
+eth-account==0.10.0
+cytoolz
+bitarray
 pydantic
+requests
 papermill
 torch
 transformers

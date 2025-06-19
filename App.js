@@ -88,11 +88,10 @@ export default function App() {
     if (currentCase) {
       fetchEvidenceFiles(currentCase.caseNumber).then(data => setEvidenceFiles(data.files || []));
     }
-    
-    // Show success message with blockchain details
+    // Show simple success message
     Alert.alert(
       'Photo Uploaded Successfully!',
-      `Transaction Hash: ${uploadResult.transaction_hash}\nBlock Number: ${uploadResult.block_number}`,
+      'Evidence uploaded successfully.',
       [{ text: 'OK' }]
     );
   };
