@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, StatusBar } from 'react-native';
+import { Alert, StatusBar } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import CaseDetails from './components/CaseDetails';
 import CaseList from './components/CaseList';
 import NewCaseForm from './components/NewCaseForm';
@@ -67,12 +68,18 @@ export default function App() {
       if (res.status === 'success') {
         setCases([...cases, res.case]);
         setShowNewCaseForm(false);
+      } else if (res.status === 'error' && res.message && res.message.includes('already exists')) {
+        Alert.alert('Duplicate Case Number', res.message);
       } else {
         Alert.alert('Error', res.message || 'Failed to create case');
       }
     } catch (error) {
-      console.error('Error creating case:', error);
-      Alert.alert('Error', 'Failed to create case. Please try again.');
+      if (error.status === 409) {
+        Alert.alert('Duplicate Case Number', 'A case with this number already exists. Please use a unique case number.');
+      } else {
+        console.error('Error creating case:', error);
+        Alert.alert('Error', 'Failed to create case. Please try again.');
+      }
     } finally {
       setLoadingNewCase(false);
     }
@@ -97,8 +104,9 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F8F8' }}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaProvider>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F8F8' }}>
+        <StatusBar barStyle="dark-content" />
       {currentPage === 'caseList' && (
         <CaseList cases={cases} onSelectCase={handleSelectCase} onNewCase={handleNewCase} />
       )}
@@ -121,6 +129,7 @@ export default function App() {
         onClose={() => setShowPhotoCapture(false)}
         onPhotoUploaded={handlePhotoUploaded}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }

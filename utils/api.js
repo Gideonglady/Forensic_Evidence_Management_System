@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://192.168.38.55:8000';
+const API_BASE_URL = 'http://10.11.231.39:8000';
 
 export async function fetchCases() {
   const res = await fetch(`${API_BASE_URL}/cases`);
@@ -171,5 +171,38 @@ export async function getMerkleProof(caseNumber, evidenceHash) {
 
 export async function getMerkleRoot(caseNumber) {
   const res = await fetch(`${API_BASE_URL}/get-merkle-root?case_number=${caseNumber}`);
+  return res.json();
+}
+
+export async function downloadAllEvidence(caseNumber) {
+  const res = await fetch(`${API_BASE_URL}/download-all-evidence/${caseNumber}`, {
+    method: 'GET',
+  });
+  return res;
+}
+
+export async function deleteCase(caseNumber) {
+  const res = await fetch(`${API_BASE_URL}/delete-case`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ case_number: caseNumber })
+  });
+  return res.json();
+}
+
+export async function getSaltedHash(photo) {
+  const formData = new FormData();
+  formData.append('image', {
+    uri: photo.uri,
+    type: 'image/jpeg',
+    name: photo.name || `evidence_${Date.now()}.jpg`
+  });
+  const res = await fetch(`${API_BASE_URL}/salted-hash`, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return res.json();
 } 

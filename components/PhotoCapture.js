@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { uploadPhoto, submitEvidenceHashes } from '../utils/api';
+import { uploadPhoto, submitEvidenceHashes, getSaltedHash } from '../utils/api';
 
 export default function PhotoCapture({ visible, caseNumber, onClose, onPhotoUploaded }) {
   const [loading, setLoading] = useState(false);
@@ -79,36 +78,6 @@ export default function PhotoCapture({ visible, caseNumber, onClose, onPhotoUplo
     setCapturedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const generateHash = async (uri) => {
-    try {
-      // For React Native, create a hash from the image URI and metadata
-      // This is more reliable than trying to read the actual image data
-      const imageData = {
-        uri: uri,
-        timestamp: Date.now(),
-        caseNumber: caseNumber,
-        size: 'unknown',
-        type: 'image/jpeg'
-      };
-      
-      const dataString = JSON.stringify(imageData);
-      const hash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        dataString
-      );
-      
-      return hash;
-    } catch (error) {
-      console.error('Error generating hash:', error);
-      // Fallback: generate a simple hash from timestamp and case number
-      const fallbackData = `${caseNumber}_${Date.now()}`;
-      return Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        fallbackData
-      );
-    }
-  };
-
   const uploadToBackend = async () => {
     if (capturedImages.length === 0) return;
 
@@ -123,8 +92,13 @@ export default function PhotoCapture({ visible, caseNumber, onClose, onPhotoUplo
         const image = capturedImages[i];
         setUploadProgress(`Uploading photo ${i + 1} of ${capturedImages.length}...`);
         try {
-          // Generate hash for the photo
-          const photoHash = await generateHash(image.uri);
+          // Get salted hash from backend
+          const saltedResult = await getSaltedHash(image);
+          if (!saltedResult.hash) {
+            throw new Error(saltedResult.error || 'Failed to generate salted hash');
+          }
+          const photoHash = saltedResult.hash;
+          console.log(`[UPLOAD] Salted hash for image ${image.fileName || image.uri}: ${photoHash}`);
           // Upload photo to backend (file upload only)
           await uploadPhoto(caseNumber, image, photoHash); // This will upload the file
           evidenceHashes.push(photoHash);

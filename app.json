@@ -4,6 +4,7 @@
       "slug": "photo-evidence-app",
       "version": "1.0.0",
       "orientation": "portrait",
+      "sdkVersion": "54.0.0",
       "icon": "./assets/images/icon.png",
       "userInterfaceStyle": "light",
       "splash": {
@@ -38,7 +39,5 @@
       "web": {
         "favicon": "./assets/images/favicon.png"
       },
-      "entryPoint": "./app/app.js"
-    },
-    "main": "./app/app.js"
+    }
   }

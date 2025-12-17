@@ -1,23 +1,5 @@
 [
   {
-    "id": "case_1750233475.624586",
-    "caseNumber": "TEST001",
-    "description": "Test case",
-    "createdAt": "2025-06-18T13:27:55.624637",
-    "photoCount": 0,
-    "processedCount": 0,
-    "thumbnails": []
-  },
-  {
-    "id": "case_1750233560.601798",
-    "caseNumber": "1",
-    "description": "Hdbsbns",
-    "createdAt": "2025-06-18T13:29:20.601806",
-    "photoCount": 0,
-    "processedCount": 0,
-    "thumbnails": []
-  },
-  {
     "id": "case_1750233584.332117",
     "caseNumber": "2",
     "description": "",
@@ -27,73 +9,55 @@
     "thumbnails": []
   },
   {
-    "id": "case_1750233597.696208",
-    "caseNumber": "1",
-    "description": "Bjd",
-    "createdAt": "2025-06-18T13:29:57.696223",
-    "photoCount": 0,
-    "processedCount": 0,
-    "thumbnails": []
-  },
-  {
-    "id": "case_1750238139.019293",
-    "caseNumber": "123",
-    "description": "Glady",
-    "createdAt": "2025-06-18T14:45:39.019895",
-    "photoCount": 0,
-    "processedCount": 0,
-    "thumbnails": []
-  },
-  {
-    "id": "case_1750238718.980123",
-    "caseNumber": "4331",
-    "description": "",
-    "createdAt": "2025-06-18T14:55:18.980141",
-    "photoCount": 0,
-    "processedCount": 0,
-    "thumbnails": []
-  },
-  {
-    "id": "case_1750239269.971826",
-    "caseNumber": "99",
-    "description": "Jjsbshsnns",
-    "createdAt": "2025-06-18T15:04:29.971837",
-    "photoCount": 0,
-    "processedCount": 0,
-    "thumbnails": []
-  },
-  {
-    "id": "case_1750295082.923989",
-    "caseNumber": "1",
-    "description": "",
-    "createdAt": "2025-06-19T06:34:42.924009",
-    "photoCount": 0,
-    "processedCount": 0,
-    "thumbnails": []
-  },
-  {
-    "id": "case_1750295234.102557",
-    "caseNumber": "9876",
-    "description": "Glady",
-    "createdAt": "2025-06-19T06:37:14.102576",
-    "photoCount": 0,
-    "processedCount": 0,
-    "thumbnails": []
-  },
-  {
-    "id": "case_1750325212.409331",
+    "id": "case_1750328080.11419",
     "caseNumber": "14",
     "description": "",
-    "createdAt": "2025-06-19T14:56:52.409331",
+    "createdAt": "2025-06-19T15:44:40.114190",
     "photoCount": 0,
     "processedCount": 0,
     "thumbnails": []
   },
   {
-    "id": "case_1750325284.956881",
+    "id": "case_1750329172.939586",
+    "caseNumber": "7",
+    "description": "",
+    "createdAt": "2025-06-19T16:02:52.939586",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750395486.000879",
     "caseNumber": "16",
     "description": "",
-    "createdAt": "2025-06-19T14:58:04.956881",
+    "createdAt": "2025-06-20T10:28:06.000879",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750401455.905818",
+    "caseNumber": "25",
+    "description": "",
+    "createdAt": "2025-06-20T12:07:35.905818",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1750403278.78636",
+    "caseNumber": "54",
+    "description": "",
+    "createdAt": "2025-06-20T12:37:58.786360",
+    "photoCount": 0,
+    "processedCount": 0,
+    "thumbnails": []
+  },
+  {
+    "id": "case_1761551551.71516",
+    "caseNumber": "77",
+    "description": "",
+    "createdAt": "2025-10-27T13:22:31.715160",
     "photoCount": 0,
     "processedCount": 0,
     "thumbnails": []

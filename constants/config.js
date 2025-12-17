@@ -1,10 +1,11 @@
 // Configuration for the Photo Evidence App
 export const CONFIG = {
   // Backend API Configuration
-  API_BASE_URL: "http://192.168.0.4:8000",
+  API_BASE_URL: "http://10.11.231.39:8000",   
   
   // Fallback URLs for different network scenarios
   FALLBACK_URLS: [
+    "http://10.11.231.39:8000",
     "http://192.168.0.4:8000",
     "http://localhost:8000",
     "http://127.0.0.1:8000"
