@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, StatusBar } from 'react-native';
+import { Alert, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import CaseDetails from './components/CaseDetails';
 import CaseList from './components/CaseList';
 import NewCaseForm from './components/NewCaseForm';
 import PhotoCapture from './components/PhotoCapture';
 import PhotoModal from './components/PhotoModal';
+import { checkBackendHealth } from './constants/config';
 import { createCase, deleteEvidenceFile, fetchCases, fetchEvidenceFiles } from './utils/api';
 
 export default function App() {
@@ -18,10 +19,34 @@ export default function App() {
   const [showNewCaseForm, setShowNewCaseForm] = useState(false);
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
   const [loadingNewCase, setLoadingNewCase] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+
+  const loadCases = async () => {
+    const ok = await checkBackendHealth();
+    if (!ok) {
+      setConnectionError(true);
+      return;
+    }
+    setConnectionError(false);
+    try {
+      const data = await fetchCases();
+      setCases(data.cases || []);
+    } catch (e) {
+      setConnectionError(true);
+    }
+  };
 
   useEffect(() => {
-    fetchCases().then(data => setCases(data.cases || []));
+    loadCases();
   }, []);
+
+  const handleReconnect = async () => {
+    setReconnecting(true);
+    setConnectionError(false);
+    await loadCases();
+    setReconnecting(false);
+  };
 
   useEffect(() => {
     if (currentPage === 'caseDetails' && currentCase) {
@@ -107,10 +132,22 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F8F8' }}>
         <StatusBar barStyle="dark-content" />
-      {currentPage === 'caseList' && (
+      {connectionError ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Text style={{ fontSize: 20, fontWeight: '600', color: '#1A1A1A', marginBottom: 8, textAlign: 'center' }}>Something went wrong</Text>
+          <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 24 }}>Could not connect to the backend. Make sure the server is running, then try again.</Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#007AFF', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 10 }}
+            onPress={handleReconnect}
+            disabled={reconnecting}
+          >
+            <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '600' }}>{reconnecting ? 'Connecting…' : 'Reconnect'}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : currentPage === 'caseList' ? (
         <CaseList cases={cases} onSelectCase={handleSelectCase} onNewCase={handleNewCase} />
-      )}
-      {currentPage === 'caseDetails' && currentCase && (
+      ) : null}
+      {!connectionError && currentPage === 'caseDetails' && currentCase && (
         <CaseDetails
           caseData={currentCase}
           evidenceFiles={evidenceFiles}

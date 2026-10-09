@@ -1,3 +1,8 @@
+import os
+# Disable TensorFlow in transformers to avoid conflicts (we use PyTorch)
+os.environ['TRANSFORMERS_NO_TF'] = '1'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +22,7 @@ try:
     try:
         from transformers import BlipProcessor, BlipForConditionalGeneration, pipeline, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
         TRANSFORMERS_AVAILABLE = True
-    except ImportError as e:
+    except (ImportError, RuntimeError) as e:
         print(f"Transformers not available: {e}")
         TRANSFORMERS_AVAILABLE = False
     
@@ -25,7 +30,7 @@ try:
     try:
         from transformers import T5Tokenizer, T5ForConditionalGeneration
         T5_AVAILABLE = True
-    except ImportError as e:
+    except (ImportError, RuntimeError) as e:
         print(f"T5 not available (SentencePiece issue): {e}")
         T5_AVAILABLE = False
     
@@ -33,7 +38,7 @@ try:
     try:
         from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
         ALTERNATIVE_MODELS_AVAILABLE = True
-    except ImportError as e:
+    except (ImportError, RuntimeError) as e:
         print(f"Alternative models not available: {e}")
         ALTERNATIVE_MODELS_AVAILABLE = False
     
@@ -64,21 +69,29 @@ if AI_AVAILABLE:
 
         # BLIP for image captioning
         if TRANSFORMERS_AVAILABLE:
-            print("Loading BLIP model...")
-            blip_processor = BlipProcessor.from_pretrained(BLIP_MODEL_NAME)
-            blip_model = BlipForConditionalGeneration.from_pretrained(BLIP_MODEL_NAME).to(device)
-            BLIP_LOADED = True
-            print("BLIP model loaded successfully")
+            try:
+                print("Loading BLIP model...")
+                blip_processor = BlipProcessor.from_pretrained(BLIP_MODEL_NAME)
+                blip_model = BlipForConditionalGeneration.from_pretrained(BLIP_MODEL_NAME).to(device)
+                BLIP_LOADED = True
+                print("BLIP model loaded successfully")
+            except Exception as e:
+                print(f"BLIP model failed to load: {e}")
+                BLIP_LOADED = False
         else:
             BLIP_LOADED = False
 
         # T5 for sequence ordering (only if available)
         if T5_AVAILABLE:
-            print("Loading T5 model...")
-            order_tokenizer = T5Tokenizer.from_pretrained("t5-small")
-            order_model = T5ForConditionalGeneration.from_pretrained("t5-small").to(device)
-            T5_LOADED = True
-            print("T5 model loaded successfully")
+            try:
+                print("Loading T5 model...")
+                order_tokenizer = T5Tokenizer.from_pretrained("t5-small")
+                order_model = T5ForConditionalGeneration.from_pretrained("t5-small").to(device)
+                T5_LOADED = True
+                print("T5 model loaded successfully")
+            except Exception as e:
+                print(f"T5 model failed to load: {e}")
+                T5_LOADED = False
         else:
             T5_LOADED = False
 
@@ -123,10 +136,14 @@ if AI_AVAILABLE:
 
         # GPT for narrative generation
         if TRANSFORMERS_AVAILABLE:
-            print("Loading GPT model...")
-            story_gen = pipeline("text-generation", model=GPT_MODEL_NAME, device=0 if device == "cuda" else -1)
-            GPT_LOADED = True
-            print("GPT model loaded successfully")
+            try:
+                print("Loading GPT model...")
+                story_gen = pipeline("text-generation", model=GPT_MODEL_NAME, device=0 if device == "cuda" else -1)
+                GPT_LOADED = True
+                print("GPT model loaded successfully")
+            except Exception as e:
+                print(f"GPT model failed to load: {e}")
+                GPT_LOADED = False
         else:
             GPT_LOADED = False
         

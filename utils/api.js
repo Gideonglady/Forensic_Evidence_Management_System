@@ -1,22 +1,22 @@
-const API_BASE_URL = 'http://10.11.231.39:8000';
+import { getApiUrl } from '../constants/config';
 
 export async function fetchCases() {
-  const res = await fetch(`${API_BASE_URL}/cases`);
+  const res = await fetch(`${getApiUrl()}/cases`);
   return res.json();
 }
 
 export async function fetchEvidenceFiles(caseNumber) {
-  const res = await fetch(`${API_BASE_URL}/download-evidence?case_number=${caseNumber}`);
+  const res = await fetch(`${getApiUrl()}/download-evidence?case_number=${caseNumber}`);
   return res.json();
 }
 
 export async function downloadEvidenceFile(filename) {
-  const res = await fetch(`${API_BASE_URL}/download-file/${filename}`);
+  const res = await fetch(`${getApiUrl()}/download-file/${filename}`);
   return res;
 }
 
 export async function deleteEvidenceFile(filename) {
-  const res = await fetch(`${API_BASE_URL}/delete-evidence-file`, {
+  const res = await fetch(`${getApiUrl()}/delete-evidence-file`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ filename })
@@ -25,7 +25,7 @@ export async function deleteEvidenceFile(filename) {
 }
 
 export async function createCase(caseData) {
-  const res = await fetch(`${API_BASE_URL}/create-case`, {
+  const res = await fetch(`${getApiUrl()}/create-case`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(caseData)
@@ -38,7 +38,7 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
     // Create form data for multipart upload
     const formData = new FormData();
     formData.append('caseNumber', caseNumber);
-    
+
     // Create file object from photo
     const photoFile = {
       uri: photo.uri,
@@ -48,7 +48,7 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
     formData.append('photo', photoFile);
 
     // Upload to backend
-    const response = await fetch(`${API_BASE_URL}/process-photo`, {
+    const response = await fetch(`${getApiUrl()}/process-photo`, {
       method: 'POST',
       body: formData,
       headers: {
@@ -61,9 +61,9 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
     }
 
     const uploadResult = await response.json();
-    
+
     // Store evidence hash on blockchain
-    const blockchainResponse = await fetch(`${API_BASE_URL}/store-evidence`, {
+    const blockchainResponse = await fetch(`${getApiUrl()}/store-evidence`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -92,7 +92,7 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
     }
 
     const blockchainResult = await blockchainResponse.json();
-    
+
     return {
       status: 'success',
       message: 'Photo uploaded and stored on blockchain successfully',
@@ -103,7 +103,7 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
 
   } catch (error) {
     console.error('Upload error:', error);
-    
+
     // Fallback to mock data if backend is unavailable
     if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
       console.log('Backend unavailable, using mock data');
@@ -130,7 +130,7 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
         }
       };
     }
-    
+
     throw error;
   }
 }
@@ -138,8 +138,8 @@ export async function uploadPhoto(caseNumber, photo, photoHash) {
 export async function aiAnalyzeCase(caseNumber) {
   const formData = new FormData();
   formData.append('case_number', caseNumber);
-  
-  const res = await fetch(`${API_BASE_URL}/ai-analyze-case`, {
+
+  const res = await fetch(`${getApiUrl()}/ai-analyze-case`, {
     method: 'POST',
     body: formData,
   });
@@ -147,13 +147,13 @@ export async function aiAnalyzeCase(caseNumber) {
 }
 
 export async function downloadReport(filename) {
-  const res = await fetch(`${API_BASE_URL}/download-report/${filename}`);
+  const res = await fetch(`${getApiUrl()}/download-report/${filename}`);
   return res;
 }
 
 // Merkle tree endpoints
 export async function submitEvidenceHashes(caseNumber, evidenceHashes) {
-  const res = await fetch(`${API_BASE_URL}/submit-evidence-hashes`, {
+  const res = await fetch(`${getApiUrl()}/submit-evidence-hashes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -165,24 +165,24 @@ export async function submitEvidenceHashes(caseNumber, evidenceHashes) {
 }
 
 export async function getMerkleProof(caseNumber, evidenceHash) {
-  const res = await fetch(`${API_BASE_URL}/get-merkle-proof?case_number=${caseNumber}&evidence_hash=${evidenceHash}`);
+  const res = await fetch(`${getApiUrl()}/get-merkle-proof?case_number=${caseNumber}&evidence_hash=${evidenceHash}`);
   return res.json();
 }
 
 export async function getMerkleRoot(caseNumber) {
-  const res = await fetch(`${API_BASE_URL}/get-merkle-root?case_number=${caseNumber}`);
+  const res = await fetch(`${getApiUrl()}/get-merkle-root?case_number=${caseNumber}`);
   return res.json();
 }
 
 export async function downloadAllEvidence(caseNumber) {
-  const res = await fetch(`${API_BASE_URL}/download-all-evidence/${caseNumber}`, {
+  const res = await fetch(`${getApiUrl()}/download-all-evidence/${caseNumber}`, {
     method: 'GET',
   });
   return res;
 }
 
 export async function deleteCase(caseNumber) {
-  const res = await fetch(`${API_BASE_URL}/delete-case`, {
+  const res = await fetch(`${getApiUrl()}/delete-case`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ case_number: caseNumber })
@@ -197,7 +197,7 @@ export async function getSaltedHash(photo) {
     type: 'image/jpeg',
     name: photo.name || `evidence_${Date.now()}.jpg`
   });
-  const res = await fetch(`${API_BASE_URL}/salted-hash`, {
+  const res = await fetch(`${getApiUrl()}/salted-hash`, {
     method: 'POST',
     body: formData,
     headers: {

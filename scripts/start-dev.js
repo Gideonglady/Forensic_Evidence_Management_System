@@ -6,7 +6,7 @@ console.log('🚀 Starting Photo Evidence App Development Environment...\n');
 // Function to start a process
 function startProcess(name, command, args, cwd) {
   console.log(`📡 Starting ${name}...`);
-  
+
   const process = spawn(command, args, {
     cwd: cwd || '.',
     stdio: 'inherit',
@@ -26,13 +26,13 @@ function startProcess(name, command, args, cwd) {
 
 // Start backend server
 console.log('🔧 Starting Python Backend...');
-const backendProcess = startProcess('Backend', 'python', ['main.py'], './backend');
+const backendProcess = startProcess('Backend', '.\\venv\\Scripts\\python.exe', ['main.py'], './backend');
 
 // Wait a moment for backend to start
 setTimeout(() => {
   console.log('\n📱 Starting Expo Development Server...');
   const expoProcess = startProcess('Expo', 'npx', ['expo', 'start'], '.');
-  
+
   expoProcess.on('close', () => {
     console.log('\n🛑 Shutting down development environment...');
     backendProcess.kill();

@@ -59,7 +59,7 @@ export default function CaseDetails({
 
       // Create a temporary file in the app's cache
       const tempUri = `${FileSystem.cacheDirectory}${filename}`;
-      
+
       // Copy the file to cache first
       await FileSystem.copyAsync({
         from: fileUri,
@@ -116,7 +116,7 @@ export default function CaseDetails({
     setAnalyzing(true);
     try {
       const result = await aiAnalyzeCase(caseData.caseNumber);
-      
+
       if (result.status === 'success') {
         setAnalysisResult(result.analysis);
         setReportFilename(result.report_filename);
@@ -141,21 +141,21 @@ export default function CaseDetails({
 
   const handleDownloadReport = async () => {
     if (!reportFilename) {
-      Alert.alert('No Report', 'No report available for download.');
+      Alert.alert('No Report', 'No report available for download. Please run AI Analysis first.');
       return;
     }
 
     try {
       setDownloading(true);
       const response = await downloadReport(reportFilename);
-      
+
       if (response.ok) {
         const text = await response.text();
-        
+
         // Save to cache first
         const tempUri = `${FileSystem.cacheDirectory}${reportFilename}`;
         await FileSystem.writeAsStringAsync(tempUri, text, {
-          encoding: FileSystem.EncodingType.UTF8,
+          encoding: 'utf8',  // Changed from FileSystem.EncodingType.UTF8
         });
 
         // Share the file
@@ -165,7 +165,7 @@ export default function CaseDetails({
             dialogTitle: `Save Forensic Report - ${caseData.caseNumber}`,
             UTI: 'public.plain-text'
           });
-          
+
           Alert.alert(
             'Report Ready',
             'The forensic report is ready to be saved. Use the share dialog to save it to your preferred location.',
@@ -179,7 +179,7 @@ export default function CaseDetails({
       }
     } catch (error) {
       console.error('Download error:', error);
-      Alert.alert('Error', 'Failed to download report.');
+      Alert.alert('Error', `Failed to download report: ${error.message}`);
     } finally {
       setDownloading(false);
     }
@@ -204,7 +204,7 @@ export default function CaseDetails({
               try {
                 const response = await downloadAllEvidence(caseData.caseNumber);
                 if (!response.ok) throw new Error('Download failed');
-                
+
                 const blob = await response.blob();
                 // Convert blob to base64
                 const reader = new FileReader();
@@ -255,7 +255,7 @@ export default function CaseDetails({
       if (response.ok) {
         const arrayBuffer = await response.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        
+
         // Create temporary file
         const tempUri = `${FileSystem.cacheDirectory}${file.filename}`;
         const base64 = btoa(String.fromCharCode(...uint8Array));
@@ -354,15 +354,15 @@ export default function CaseDetails({
 
         {/* Action Buttons Row */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={handleAIAnalysis}
             disabled={analyzing}
-            style={{ 
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              backgroundColor: analyzing ? '#999' : '#FF6B35', 
-              paddingHorizontal: 12, 
-              paddingVertical: 10, 
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: analyzing ? '#999' : '#FF6B35',
+              paddingHorizontal: 12,
+              paddingVertical: 10,
               borderRadius: 8,
               marginBottom: 8,
               minWidth: 120
@@ -378,14 +378,14 @@ export default function CaseDetails({
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={handleBulkDownload}
-            style={{ 
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              backgroundColor: '#4CAF50', 
-              paddingHorizontal: 12, 
-              paddingVertical: 10, 
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#4CAF50',
+              paddingHorizontal: 12,
+              paddingVertical: 10,
               borderRadius: 8,
               marginBottom: 8,
               minWidth: 120
@@ -395,14 +395,14 @@ export default function CaseDetails({
             <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>Download All</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={onAddPhoto}
-            style={{ 
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              backgroundColor: '#007AFF', 
-              paddingHorizontal: 16, 
-              paddingVertical: 12, 
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#007AFF',
+              paddingHorizontal: 16,
+              paddingVertical: 12,
               borderRadius: 12,
               marginBottom: 8,
               minWidth: 120
@@ -426,14 +426,14 @@ export default function CaseDetails({
               Mode: {analysisResult.mode === 'ai' ? 'Full AI Analysis' : 'Basic Analysis'}
             </Text>
             {reportFilename && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleDownloadReport}
-                style={{ 
-                  flexDirection: 'row', 
-                  alignItems: 'center', 
-                  backgroundColor: '#4CAF50', 
-                  paddingHorizontal: 12, 
-                  paddingVertical: 8, 
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#4CAF50',
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
                   borderRadius: 6,
                   alignSelf: 'flex-start'
                 }}
@@ -444,7 +444,7 @@ export default function CaseDetails({
             )}
           </View>
         )}
-        
+
         <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>Evidence Files</Text>
         {(!evidenceFiles || evidenceFiles.length === 0) ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

@@ -7,8 +7,10 @@ bitarray
 pydantic
 requests
 papermill
-torch
-transformers
+torch>=2.0.0
+transformers>=4.30.0
 pillow
 accelerate
 blake3
+sentencepiece
+protobuf

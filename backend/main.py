@@ -1,3 +1,8 @@
+import os
+# Disable TensorFlow in transformers to avoid conflicts (we use PyTorch)
+os.environ['TRANSFORMERS_NO_TF'] = '1'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Query, Request, Body
 from pydantic import BaseModel
 import subprocess

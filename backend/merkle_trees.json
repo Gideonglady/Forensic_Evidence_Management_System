@@ -244,5 +244,46 @@
         ]
       ]
     }
+  },
+  "12345": {
+    "evidence_hashes": [
+      "eff1fddae8b79365d7620f025bd69de1798606b0783101190391e190a84e7950",
+      "d21034697cf93edd8ecfad5e75931fc1d5e83227cec6acfabd28da60b96179aa",
+      "e553c2cc4079ed0183270e3fee801895adeb20687cfddfcdf1acdcce003b70cd"
+    ],
+    "leaves": [
+      "0bf102ca5bb839fe417ceebc9ed264cbd5c31b3160729c009ef0537dff7b0c08",
+      "67622a0586abfb10e76f346d6ee8e1c4c016c607a30057deceac91999edbf35c",
+      "d5a3ec5bfb763d5b1b7a828e550da2c6f71bcf986947911de0122e8ccb546045"
+    ],
+    "merkle_root": "51ba71f2ac6af67eb7d38585faf65041b48441ddb5e118d45f9d53a2b49c3328",
+    "proofs": {
+      "0bf102ca5bb839fe417ceebc9ed264cbd5c31b3160729c009ef0537dff7b0c08": [
+        [
+          "67622a0586abfb10e76f346d6ee8e1c4c016c607a30057deceac91999edbf35c",
+          "right"
+        ],
+        [
+          "216dfb8934bd78052e5b88a9f992005485152b6c7f99aa56f1cd2e543ff57a81",
+          "right"
+        ]
+      ],
+      "67622a0586abfb10e76f346d6ee8e1c4c016c607a30057deceac91999edbf35c": [
+        [
+          "0bf102ca5bb839fe417ceebc9ed264cbd5c31b3160729c009ef0537dff7b0c08",
+          "left"
+        ],
+        [
+          "216dfb8934bd78052e5b88a9f992005485152b6c7f99aa56f1cd2e543ff57a81",
+          "right"
+        ]
+      ],
+      "d5a3ec5bfb763d5b1b7a828e550da2c6f71bcf986947911de0122e8ccb546045": [
+        [
+          "61ef985b3210de22adf760c0e501db5af9f8d61816168036d07a37712a171f2f",
+          "left"
+        ]
+      ]
+    }
   }
 }
